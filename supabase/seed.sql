@@ -3,14 +3,17 @@
 -- through Supabase Auth — never via this file.
 
 -- Dev owner login: dev@flipscope.local / password set via Auth admin locally.
-insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+-- GoTrue can't scan NULL token columns, so they must be '' not NULL.
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at,
+                        confirmation_token, recovery_token, email_change_token_new, email_change)
 values (
   '11111111-1111-1111-1111-111111111111',
   '00000000-0000-0000-0000-000000000000',
   'authenticated', 'authenticated',
   'dev@flipscope.local',
   crypt('flipscope-dev', gen_salt('bf')),
-  now(), now(), now()
+  now(), now(), now(),
+  '', '', '', ''
 );
 
 insert into organizations (id, name)
