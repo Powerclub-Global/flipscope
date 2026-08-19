@@ -1,0 +1,366 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FlipScope — Phase 0–2 Execution Plan</title>
+<style>
+:root{--bg:#0b0f0d;--panel:#121a15;--panel2:#0f1712;--line:#26332b;--text:#eef4ef;--muted:#93a69a;--green:#6ee744;--green2:#43b82a;--amber:#f0c75e;--red:#ff6c6c;--blue:#76a8ff;--violet:#a58bff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.wrap{max-width:1040px;margin:auto;padding:40px 22px 100px}
+h1{font-size:34px;letter-spacing:-.02em;margin:0 0 4px}h1 span{color:var(--green)}
+h2{font-size:22px;margin:44px 0 10px;border-bottom:1px solid var(--line);padding-bottom:7px}
+h3{font-size:16px;margin:22px 0 6px}h4{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:16px 0 4px}
+.sub{color:var(--muted);margin:0 0 26px}
+.card{background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:12px 0}
+.lead{background:#0f1712;border:1px solid #2c7138;border-left:4px solid var(--green);border-radius:10px;padding:18px 20px}
+code{background:#0a130e;border:1px solid #26332b;border-radius:5px;padding:1px 6px;font-size:13px;color:#cfe6d5}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.04em}
+ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+.tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.03em;padding:3px 9px;border-radius:20px}
+.g{background:#16341d;color:#8cf177;border:1px solid #2c7138}.b{background:#14243a;color:#9cc0ff;border:1px solid #2f4a6d}
+.a{background:#3a2a12;color:#ffd177;border:1px solid #6c5a21}.v{background:#231a3a;color:#c3b0ff;border:1px solid #4a3f6d}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:720px){.two{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+.mut{color:var(--muted)}.sm{font-size:12.5px}
+.hr{height:1px;background:var(--line);margin:34px 0}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:14px}
+.kpi small{color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:.06em}.kpi b{display:block;font-size:22px;margin-top:5px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}
+.diagram{overflow-x:auto;margin:16px 0;background:#0a130e;border:1px solid var(--line);border-radius:12px;padding:16px}
+.diagram svg{display:block;min-width:640px;width:100%;height:auto}
+.cap{color:var(--muted);font-size:12px;margin:6px 2px 0}
+.mile{border:1px solid var(--line);border-radius:12px;padding:0;margin:16px 0;overflow:hidden}
+.mile .top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.mile.m1 .top{background:#122b19}.mile.m2 .top{background:#141f31}.mile.m3 .top{background:#2b230f}
+.mile .top h3{margin:0;font-size:18px}.mile .top .wk{font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap}
+.mile .in{padding:14px 18px}
+.gate{background:#0a130e;border:1px dashed #3a5542;border-radius:8px;padding:10px 12px;margin-top:10px;font-size:13px}
+.phase{border-left:3px solid var(--line);padding:2px 0 6px 15px;margin:14px 0}
+.phase h4{color:var(--text);text-transform:none;font-size:14px;letter-spacing:0;margin:0 0 3px}
+.phase .wk{float:right;font-size:11px;color:var(--muted);font-weight:700}
+.checklist{list-style:none;padding-left:0;margin:10px 0}
+.checklist li{display:flex;gap:9px;align-items:flex-start;padding:6px 0;border-bottom:1px solid #1c2620}
+.checklist li:last-child{border:0}
+.checklist .box{flex:0 0 16px;width:16px;height:16px;border:1px solid #44604c;border-radius:4px;margin-top:2px}
+.dod{background:#0a130e;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:8px}
+.dod h4{margin-top:0;color:var(--green)}
+</style></head><body><div class="wrap">
+
+<h1>Flip<span>Scope</span> — Phase 0–2 Execution Plan</h1>
+<p class="sub">Foundation → Trust &amp; Evidence → Portfolio Layer · MVP milestone · 2026-08-19</p>
+
+<div class="lead">
+<b>Goal.</b> Take FlipScope from the current single-file demo to a real, secure, multi-tenant application that Hanger Investments can run its live portfolio on — Phases 0–2 of the <a href="./FlipScope_Build_Plan_2026-08-18.html" style="color:#8cf177">Build Plan</a>, gated by the <b>MVP: Internal Use</b> readiness bar. This document breaks those three phases into weekly execution steps, task ownership, schema, and diagrams so work can start immediately.</p>
+</div>
+
+<div class="grid3">
+<div class="kpi"><small>Phases in scope</small><b>0 · 1 · 2</b></div>
+<div class="kpi"><small>Duration</small><b>~7 weeks</b></div>
+<div class="kpi"><small>Exit</small><b>MVP gate</b></div>
+</div>
+
+<h2>1 · Execution timeline</h2>
+<p>Nine work-streams across three phases, sequenced so schema and CI land first — everything else depends on them.</p>
+<div class="diagram">
+<svg viewBox="0 0 900 460" role="img" aria-label="Phase 0 to 2 execution Gantt chart">
+<g font-size="10.5" fill="#6b7c72" text-anchor="middle">
+<text x="210" y="24">wk 1</text><text x="310" y="24">wk 2</text><text x="410" y="24">wk 3</text><text x="510" y="24">wk 4</text><text x="610" y="24">wk 5</text><text x="710" y="24">wk 6</text><text x="810" y="24">wk 7</text>
+</g>
+<g stroke="#1c2620" stroke-width="1">
+<line x1="160" y1="34" x2="860" y2="34"/><line x1="260" y1="34" x2="260" y2="430"/><line x1="360" y1="34" x2="360" y2="430"/><line x1="460" y1="34" x2="460" y2="430"/><line x1="560" y1="34" x2="560" y2="430"/><line x1="660" y1="34" x2="660" y2="430"/><line x1="760" y1="34" x2="760" y2="430"/>
+</g>
+
+<!-- Phase 0 band -->
+<rect x="10" y="44" width="850" height="24" rx="5" fill="#122b19" stroke="#2c7138"/>
+<text x="20" y="60" fill="#8cf177" font-size="12" font-weight="700">PHASE 0 — FOUNDATION (weeks 1–3)</text>
+
+<g font-size="11" font-weight="700" text-anchor="middle" fill="#0b0f0d">
+<text x="10" y="90" fill="#eef4ef" font-weight="400" text-anchor="start" font-size="11.5">Repo, tooling &amp; CI scaffold</text>
+<rect x="160" y="78" width="100" height="22" rx="5" fill="#55cd42"/><text x="210" y="93">wk1</text>
+
+<text x="10" y="120" fill="#eef4ef" font-weight="400" text-anchor="start" font-size="11.5">Supabase project + multi-tenant schema</text>
+<rect x="160" y="108" width="200" height="22" rx="5" fill="#55cd42"/><text x="260" y="123">wk1–2</text>
+
+<text x="10" y="150" fill="#eef4ef" font-weight="400" text-anchor="start" font-size="11.5">Financial engine (cents, server-side)</text>
+<rect x="260" y="138" width="200" height="22" rx="5" fill="#55cd42"/><text x="360" y="153">wk2–3</text>
+
+<text x="10" y="180" fill="#eef4ef" font-weight="400" text-anchor="start" font-size="11.5">Dev/staging/prod split + RLS test suite</text>
+<rect x="360" y="168" width="100" height="22" rx="5" fill="#55cd42"/><text x="410" y="183">wk3</text>
+</g>
+
+<!-- Phase 1 band -->
+<rect x="10" y="204" width="850" height="24" rx="5" fill="#141f31" stroke="#2f4a6d"/>
+<text x="20" y="220" fill="#9cc0ff" font-size="12" font-weight="700">PHASE 1 — TRUST, ROLES &amp; EVIDENCE (weeks 4–5)</text>
+
+<g font-size="11" font-weight="700" text-anchor="middle" fill="#0b0f0d">
+<text x="10" y="250" fill="#eef4ef" font-weight="400" text-anchor="start" font-size="11.5">RBAC + row-level security policies</text>
+<rect x="460" y="238" width="100" height="22" rx="5" fill="#6f9dff"/><text x="510" y="253">wk4</text>
+
+<text x="10" y="280" fill="#eef4ef" font-weight="400" text-anchor="start" font-size="11.5">Append-only audit log</text>
+<rect x="460" y="268" width="200" height="22" rx="5" fill="#6f9dff"/><text x="560" y="283">wk4–5</text>
+
+<text x="10" y="310" fill="#eef4ef" font-weight="400" text-anchor="start" font-size="11.5">Proof-chain media pipeline (upload+metadata)</text>
+<rect x="460" y="298" width="200" height="22" rx="5" fill="#6f9dff"/><text x="560" y="313">wk4–5</text>
+
+<text x="10" y="340" fill="#eef4ef" font-weight="400" text-anchor="start" font-size="11.5">Read-only investor view</text>
+<rect x="560" y="328" width="100" height="22" rx="5" fill="#6f9dff"/><text x="610" y="343">wk5</text>
+</g>
+
+<!-- Phase 2 band -->
+<rect x="10" y="364" width="850" height="24" rx="5" fill="#2b230f" stroke="#6c5a21"/>
+<text x="20" y="380" fill="#ffd177" font-size="12" font-weight="700">PHASE 2 — PORTFOLIO LAYER (weeks 6–7)</text>
+
+<g font-size="11" font-weight="700" text-anchor="middle" fill="#0b0f0d">
+<text x="10" y="410" fill="#eef4ef" font-weight="400" text-anchor="start" font-size="11.5">Cross-property rollup engine</text>
+<rect x="660" y="398" width="100" height="22" rx="5" fill="#f0c75e"/><text x="710" y="413">wk6</text>
+
+<text x="10" y="440" fill="#eef4ef" font-weight="400" text-anchor="start" font-size="11.5">Cash-flow calendar, risk heatmap, greenlight view</text>
+<rect x="660" y="428" width="200" height="22" rx="5" fill="#f0c75e"/><text x="760" y="443">wk6–7</text>
+</g>
+</svg>
+</div>
+<p class="cap">Rows overlap deliberately — e.g. the financial engine starts once schema is stable, not after Phase 0 fully closes. Row labels sit left of the chart; bars show elapsed calendar weeks.</p>
+
+<h2>2 · Phase 0 — Foundation</h2>
+<p>Everything else in the plan is built on top of this: the schema, the money model, and the pipeline that keeps environments honest.</p>
+
+<h3>2.1 Data model</h3>
+<div class="diagram">
+<svg viewBox="0 0 900 430" role="img" aria-label="Phase 0 entity relationship diagram">
+<rect x="330" y="20" width="240" height="66" rx="9" fill="#122b19" stroke="#2c7138"/>
+<text x="450" y="42" fill="#8cf177" font-size="13" font-weight="700" text-anchor="middle">organizations</text>
+<text x="450" y="60" fill="#93a69a" font-size="10.5" text-anchor="middle">id · name · created_at</text>
+<text x="450" y="76" fill="#93a69a" font-size="10.5" text-anchor="middle">tenant root</text>
+
+<rect x="630" y="20" width="240" height="82" rx="9" fill="#101c14" stroke="#3a5542"/>
+<text x="750" y="42" fill="#76a8ff" font-size="12.5" font-weight="700" text-anchor="middle">org_members</text>
+<text x="750" y="60" fill="#eef4ef" font-size="10.5" text-anchor="middle">org_id · user_id · role</text>
+<text x="750" y="76" fill="#93a69a" font-size="10.5" text-anchor="middle">owner · pm · field_crew ·</text>
+<text x="750" y="90" fill="#93a69a" font-size="10.5" text-anchor="middle">investor · subcontractor</text>
+
+<rect x="330" y="130" width="240" height="50" rx="9" fill="#101c14" stroke="#3a5542"/>
+<text x="450" y="152" fill="#eef4ef" font-size="12.5" font-weight="700" text-anchor="middle">portfolios</text>
+<text x="450" y="169" fill="#93a69a" font-size="10.5" text-anchor="middle">id · org_id · name</text>
+
+<rect x="150" y="220" width="230" height="50" rx="9" fill="#101c14" stroke="#3a5542"/>
+<text x="265" y="242" fill="#eef4ef" font-size="12.5" font-weight="700" text-anchor="middle">properties</text>
+<text x="265" y="259" fill="#93a69a" font-size="10.5" text-anchor="middle">id · portfolio_id · address</text>
+
+<rect x="500" y="220" width="230" height="50" rx="9" fill="#101c14" stroke="#3a5542"/>
+<text x="615" y="242" fill="#eef4ef" font-size="12.5" font-weight="700" text-anchor="middle">properties</text>
+<text x="615" y="259" fill="#93a69a" font-size="10.5" text-anchor="middle">id · portfolio_id · address</text>
+
+<rect x="150" y="308" width="230" height="46" rx="9" fill="#0f1712" stroke="#26332b"/>
+<text x="265" y="328" fill="#eef4ef" font-size="12" font-weight="700" text-anchor="middle">projects</text>
+<text x="265" y="344" fill="#93a69a" font-size="10" text-anchor="middle">id · property_id · status · phase</text>
+
+<rect x="500" y="308" width="230" height="46" rx="9" fill="#0f1712" stroke="#26332b"/>
+<text x="615" y="328" fill="#eef4ef" font-size="12" font-weight="700" text-anchor="middle">projects</text>
+<text x="615" y="344" fill="#93a69a" font-size="10" text-anchor="middle">id · property_id · status · phase</text>
+
+<rect x="330" y="384" width="240" height="40" rx="8" fill="#160f24" stroke="#4a3f6d"/>
+<text x="450" y="406" fill="#c3b0ff" font-size="11.5" font-weight="700" text-anchor="middle">ledger_entries — id · project_id · category · amount_cents · type</text>
+
+<g stroke="#43b82a" stroke-width="2">
+<line x1="450" y1="86" x2="450" y2="128"/>
+<line x1="570" y1="53" x2="628" y2="53"/>
+<line x1="450" y1="180" x2="265" y2="218"/>
+<line x1="450" y1="180" x2="615" y2="218"/>
+<line x1="265" y1="270" x2="265" y2="306"/>
+<line x1="615" y1="270" x2="615" y2="306"/>
+<line x1="265" y1="354" x2="440" y2="392"/>
+<line x1="615" y1="354" x2="460" y2="392"/>
+</g>
+</svg>
+</div>
+<p class="cap">Every table below <code>organizations</code> carries an <code>org_id</code> (directly or via its parent), which is what row-level security keys on. <code>ledger_entries</code> is the single source of budget/committed/actual figures — nothing else stores money.</p>
+
+<h3>2.2 Money model — the one rule that can't slip</h3>
+<div class="card sm">
+All monetary values are stored as <code>integer cents</code>, never floats. Budget, committed, actual, profit and ROI for a project are <b>derived</b> from <code>ledger_entries</code> by one server-side function — the UI never computes totals independently. This is the fix for the single biggest class of bug in spreadsheet-based flip tracking (rounding drift, two screens disagreeing). It must be correct before Phase 1 or 2 build anything on top of it.
+</div>
+
+<h3>2.3 Environments &amp; CI</h3>
+<div class="diagram">
+<svg viewBox="0 0 900 190" role="img" aria-label="CI and environment promotion pipeline">
+<defs><marker id="arE" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6ee744"/></marker></defs>
+<g font-size="11.5">
+<rect x="20" y="55" width="140" height="60" rx="9" fill="#101c14" stroke="#3a5542"/>
+<text x="90" y="80" fill="#eef4ef" text-anchor="middle" font-weight="700">Feature branch</text>
+<text x="90" y="98" fill="#93a69a" text-anchor="middle" font-size="10.5">local + dev Supabase</text>
+
+<rect x="210" y="45" width="180" height="80" rx="9" fill="#160f24" stroke="#4a3f6d"/>
+<text x="300" y="68" fill="#c3b0ff" text-anchor="middle" font-weight="700">CI gate</text>
+<text x="300" y="85" fill="#93a69a" text-anchor="middle" font-size="10.5">lint · typecheck · unit tests</text>
+<text x="300" y="100" fill="#93a69a" text-anchor="middle" font-size="10.5">RLS tenant-isolation suite</text>
+
+<rect x="440" y="55" width="150" height="60" rx="9" fill="#101c14" stroke="#3a5542"/>
+<text x="515" y="80" fill="#eef4ef" text-anchor="middle" font-weight="700">Staging</text>
+<text x="515" y="98" fill="#93a69a" text-anchor="middle" font-size="10.5">auto-deploy on merge</text>
+
+<rect x="640" y="45" width="80" height="80" rx="9" fill="#0a130e" stroke="#3a5542" stroke-dasharray="4 3"/>
+<text x="680" y="80" fill="#eef4ef" text-anchor="middle" font-size="10.5" font-weight="700">Manual</text>
+<text x="680" y="96" fill="#eef4ef" text-anchor="middle" font-size="10.5" font-weight="700">promote</text>
+
+<rect x="770" y="55" width="110" height="60" rx="9" fill="#122b19" stroke="#2c7138"/>
+<text x="825" y="80" fill="#8cf177" text-anchor="middle" font-weight="700">Production</text>
+<text x="825" y="98" fill="#93a69a" text-anchor="middle" font-size="10.5">isolated DB</text>
+
+<line x1="160" y1="80" x2="208" y2="80" stroke="#6ee744" stroke-width="2" marker-end="url(#arE)"/>
+<line x1="390" y1="80" x2="438" y2="80" stroke="#6ee744" stroke-width="2" marker-end="url(#arE)"/>
+<line x1="590" y1="80" x2="638" y2="80" stroke="#6ee744" stroke-width="2" marker-end="url(#arE)"/>
+<line x1="720" y1="80" x2="768" y2="80" stroke="#6ee744" stroke-width="2" marker-end="url(#arE)"/>
+</g>
+<text x="300" y="145" fill="#93a69a" font-size="11" text-anchor="middle">A PR that fails the RLS suite cannot merge — tenant isolation is enforced by CI, not code review discipline.</text>
+</svg>
+</div>
+
+<h3>2.4 Phase 0 tasks</h3>
+<table>
+<tr><th>Task</th><th>Track</th><th>Est.</th><th>Acceptance criteria</th></tr>
+<tr><td>Repo, TS/React app scaffold (Vite), lint/format config</td><td>Infra</td><td>2 days</td><td>App builds and runs locally; CI runs on every PR</td></tr>
+<tr><td>Dedicated Supabase project (dev/staging/prod)</td><td>Infra</td><td>1 day</td><td>Three isolated projects/DBs exist; no shared secrets between them</td></tr>
+<tr><td>Schema migration 001 — org/portfolio/property/project/members</td><td>Backend</td><td>3 days</td><td>Migration applies cleanly on empty DB in all 3 envs</td></tr>
+<tr><td>Financial engine — <code>ledger_entries</code> + rollup function</td><td>Backend</td><td>4 days</td><td>Budget/committed/actual/ROI match hand-computed test fixtures to the cent</td></tr>
+<tr><td>RLS policy skeleton (org-scoped, deny-by-default)</td><td>Backend</td><td>2 days</td><td>Cross-org read/write attempts fail in automated tests</td></tr>
+<tr><td>CI: tenant-isolation test suite</td><td>QA/Infra</td><td>2 days</td><td>Suite runs on every PR and blocks merge on failure</td></tr>
+</table>
+
+<div class="dod"><h4>Phase 0 — Definition of Done</h4>
+<ul class="sm">
+<li>App scaffold deployed to staging with real auth (no demo-mode login)</li>
+<li>Org → Portfolio → Property → Project schema live in all three environments</li>
+<li>Every financial figure on screen is read from the single server-side engine</li>
+<li>CI blocks any PR that breaks tenant isolation</li>
+</ul></div>
+
+<h2>3 · Phase 1 — Trust, roles &amp; evidence</h2>
+<p>This is what makes the numbers believable to an investor and the app safe to hand to a crew: who can do what, an unerasable history, and photos that prove the work happened.</p>
+
+<h3>3.1 Role permission matrix</h3>
+<table>
+<tr><th>Capability</th><th>Owner</th><th>PM</th><th>Field Crew</th><th>Investor</th><th>Subcontractor</th></tr>
+<tr><td>View financials</td><td>✅</td><td>✅</td><td>—</td><td>✅ (read-only)</td><td>—</td></tr>
+<tr><td>Edit budget/scope</td><td>✅</td><td>✅</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>Upload proof media</td><td>✅</td><td>✅</td><td>✅</td><td>—</td><td>✅ (own tasks)</td></tr>
+<tr><td>Approve change orders</td><td>✅</td><td>✅</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>View audit log</td><td>✅</td><td>✅</td><td>—</td><td>✅ (own org)</td><td>—</td></tr>
+<tr><td>Manage members/roles</td><td>✅</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+</table>
+<p class="cap">Enforced as RLS policies in Postgres, not just UI hiding — a Field Crew token cannot read financial tables even via direct API calls.</p>
+
+<h3>3.2 Proof-chain media flow</h3>
+<div class="diagram">
+<svg viewBox="0 0 900 150" role="img" aria-label="Proof chain media pipeline">
+<defs><marker id="arP" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#76a8ff"/></marker></defs>
+<g font-size="11.5">
+<rect x="15" y="45" width="150" height="60" rx="9" fill="#101c14" stroke="#3a5542"/>
+<text x="90" y="70" fill="#eef4ef" text-anchor="middle" font-weight="700">Field capture</text>
+<text x="90" y="88" fill="#93a69a" text-anchor="middle" font-size="10.5">photo / video on-site</text>
+
+<rect x="205" y="45" width="170" height="60" rx="9" fill="#101c14" stroke="#3a5542"/>
+<text x="290" y="66" fill="#eef4ef" text-anchor="middle" font-weight="700">Storage upload</text>
+<text x="290" y="83" fill="#93a69a" text-anchor="middle" font-size="10.5">uploader · timestamp</text>
+<text x="290" y="97" fill="#93a69a" text-anchor="middle" font-size="10.5">geolocation attached</text>
+
+<rect x="415" y="45" width="170" height="60" rx="9" fill="#160f24" stroke="#4a3f6d"/>
+<text x="500" y="70" fill="#c3b0ff" text-anchor="middle" font-weight="700">Audit log</text>
+<text x="500" y="88" fill="#93a69a" text-anchor="middle" font-size="10.5">append-only event</text>
+
+<rect x="625" y="45" width="140" height="60" rx="9" fill="#101c14" stroke="#3a5542"/>
+<text x="695" y="70" fill="#eef4ef" text-anchor="middle" font-weight="700">Project timeline</text>
+<text x="695" y="88" fill="#93a69a" text-anchor="middle" font-size="10.5">linked, immutable ref</text>
+
+<rect x="795" y="45" width="90" height="60" rx="9" fill="#122b19" stroke="#2c7138"/>
+<text x="840" y="70" fill="#8cf177" text-anchor="middle" font-weight="700">Investor</text>
+<text x="840" y="88" fill="#93a69a" text-anchor="middle" font-size="10.5">verified view</text>
+
+<line x1="165" y1="75" x2="203" y2="75" stroke="#76a8ff" stroke-width="2" marker-end="url(#arP)"/>
+<line x1="375" y1="75" x2="413" y2="75" stroke="#76a8ff" stroke-width="2" marker-end="url(#arP)"/>
+<line x1="585" y1="75" x2="623" y2="75" stroke="#76a8ff" stroke-width="2" marker-end="url(#arP)"/>
+<line x1="765" y1="75" x2="793" y2="75" stroke="#76a8ff" stroke-width="2" marker-end="url(#arP)"/>
+</g>
+</svg>
+</div>
+<p class="cap">Once written, a proof-chain record cannot be edited or deleted through the app — only appended to. This is what an investor read-only view is actually trusting.</p>
+
+<h3>3.3 Phase 1 tasks</h3>
+<table>
+<tr><th>Task</th><th>Track</th><th>Est.</th><th>Acceptance criteria</th></tr>
+<tr><td>Role model + RLS policies per table</td><td>Backend</td><td>3 days</td><td>Permission matrix (3.1) fully enforced by automated tests, not just UI</td></tr>
+<tr><td>Append-only audit log (trigger-based)</td><td>Backend</td><td>2 days</td><td>UPDATE/DELETE on audit table rejected at DB level</td></tr>
+<tr><td>Media upload + metadata capture (uploader/time/geo)</td><td>Backend/Frontend</td><td>3 days</td><td>Every uploaded file has an immutable, queryable proof record</td></tr>
+<tr><td>Read-only investor view (UI)</td><td>Frontend</td><td>2 days</td><td>Investor role sees financials + proof feed, no edit affordances render</td></tr>
+</table>
+
+<div class="dod"><h4>Phase 1 — Definition of Done</h4>
+<ul class="sm">
+<li>Every role in the matrix is enforced end-to-end (API level, not just hidden buttons)</li>
+<li>Audit log entries cannot be altered or deleted by any role, including Owner</li>
+<li>Proof photos persist with uploader/timestamp/location and survive across sessions</li>
+<li>An investor account can log in and see a read-only, accurate view of one project</li>
+</ul></div>
+
+<h2>4 · Phase 2 — Portfolio layer</h2>
+<p>This is what turns FlipScope from "one project's numbers" into "how is the whole portfolio doing" — the view that makes it worth running the business on.</p>
+
+<h3>4.1 Rollup &amp; aggregation</h3>
+<div class="diagram">
+<svg viewBox="0 0 900 220" role="img" aria-label="Portfolio rollup aggregation diagram">
+<defs><marker id="arR" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#f0c75e"/></marker></defs>
+<g font-size="11">
+<rect x="15" y="20" width="140" height="42" rx="8" fill="#0f1712" stroke="#26332b"/><text x="85" y="45" fill="#93a69a" text-anchor="middle">Project A financials</text>
+<rect x="15" y="72" width="140" height="42" rx="8" fill="#0f1712" stroke="#26332b"/><text x="85" y="97" fill="#93a69a" text-anchor="middle">Project B financials</text>
+<rect x="15" y="124" width="140" height="42" rx="8" fill="#0f1712" stroke="#26332b"/><text x="85" y="149" fill="#93a69a" text-anchor="middle">Project C financials</text>
+<text x="85" y="185" fill="#6b7c72" font-size="10" text-anchor="middle">… one project per property</text>
+
+<rect x="245" y="70" width="180" height="70" rx="9" fill="#160f24" stroke="#4a3f6d"/>
+<text x="335" y="98" fill="#c3b0ff" text-anchor="middle" font-weight="700">Aggregation engine</text>
+<text x="335" y="116" fill="#93a69a" text-anchor="middle" font-size="10.5">server function, org-scoped</text>
+<text x="335" y="130" fill="#93a69a" text-anchor="middle" font-size="10.5">re-runs on every ledger write</text>
+
+<rect x="530" y="15" width="170" height="46" rx="8" fill="#101c14" stroke="#3a5542"/><text x="615" y="42" fill="#eef4ef" text-anchor="middle" font-weight="700">Blended ROI</text>
+<rect x="530" y="70" width="170" height="46" rx="8" fill="#101c14" stroke="#3a5542"/><text x="615" y="97" fill="#eef4ef" text-anchor="middle" font-weight="700">Cash-flow calendar</text>
+<rect x="530" y="125" width="170" height="46" rx="8" fill="#101c14" stroke="#3a5542"/><text x="615" y="152" fill="#eef4ef" text-anchor="middle" font-weight="700">Risk heatmap</text>
+<rect x="530" y="180" width="170" height="34" rx="8" fill="#122b19" stroke="#2c7138"/><text x="615" y="202" fill="#8cf177" text-anchor="middle" font-weight="700" font-size="10.5">Deal greenlight view</text>
+
+<line x1="155" y1="41" x2="243" y2="90" stroke="#f0c75e" stroke-width="1.5" marker-end="url(#arR)"/>
+<line x1="155" y1="93" x2="243" y2="103" stroke="#f0c75e" stroke-width="1.5" marker-end="url(#arR)"/>
+<line x1="155" y1="145" x2="243" y2="116" stroke="#f0c75e" stroke-width="1.5" marker-end="url(#arR)"/>
+<line x1="425" y1="90" x2="528" y2="38" stroke="#f0c75e" stroke-width="1.5" marker-end="url(#arR)"/>
+<line x1="425" y1="100" x2="528" y2="93" stroke="#f0c75e" stroke-width="1.5" marker-end="url(#arR)"/>
+<line x1="425" y1="115" x2="528" y2="148" stroke="#f0c75e" stroke-width="1.5" marker-end="url(#arR)"/>
+<line x1="425" y1="130" x2="528" y2="196" stroke="#f0c75e" stroke-width="1.5" marker-end="url(#arR)"/>
+</g>
+</svg>
+</div>
+<p class="cap">Nothing here computes independently — every portfolio number is a re-aggregation of the same <code>ledger_entries</code> the project screen reads, so the two views can never disagree.</p>
+
+<h3>4.2 Phase 2 tasks</h3>
+<table>
+<tr><th>Task</th><th>Track</th><th>Est.</th><th>Acceptance criteria</th></tr>
+<tr><td>Cross-property rollup function (blended budget/actual/ROI)</td><td>Backend</td><td>3 days</td><td>Portfolio total equals sum of project totals to the cent, always</td></tr>
+<tr><td>Cash-flow calendar (combined draws/spend by date)</td><td>Backend/Frontend</td><td>3 days</td><td>Calendar reflects ledger changes within one refresh cycle</td></tr>
+<tr><td>Risk heatmap (budget variance, schedule slip signals)</td><td>Backend/Frontend</td><td>2 days</td><td>Flags at least the two riskiest properties correctly against test fixtures</td></tr>
+<tr><td>Deal greenlight view (portfolio landing page)</td><td>Frontend</td><td>2 days</td><td>Owner can see portfolio health without opening any individual project</td></tr>
+</table>
+
+<div class="dod"><h4>Phase 2 — Definition of Done</h4>
+<ul class="sm">
+<li>Portfolio view aggregates real data across ≥2 properties correctly</li>
+<li>Cash-flow calendar and risk heatmap update live from ledger changes</li>
+<li><b>MVP gate met</b>: Hanger Investments can run live deals in the app, day to day</li>
+</ul></div>
+
+<h2>5 · This week — kickoff checklist</h2>
+<ul class="checklist">
+<li><span class="box"></span> Create source repo (GitHub) with branch protection + CI workflow stub</li>
+<li><span class="box"></span> Provision dedicated Supabase project(s): dev, staging, prod</li>
+<li><span class="box"></span> Scaffold React + TypeScript app (Vite), wire real auth against Supabase</li>
+<li><span class="box"></span> Write migration 001: organizations, org_members, portfolios, properties, projects</li>
+<li><span class="box"></span> Confirm Hanger Investments seed data: initial members/roles, first property to load</li>
+<li><span class="box"></span> Stand up CI: lint, typecheck, unit tests, empty RLS test suite (fill in during Phase 0)</li>
+</ul>
+
+<p class="mut sm" style="margin-top:26px">FlipScope Phase 0–2 Execution Plan · 2026-08-19 · Companion to the FlipScope Build Plan (2026-08-18) and Technical Audit.</p>
+
+</div></body></html>

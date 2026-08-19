@@ -1,0 +1,164 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FlipScope — PCG Technical Audit</title>
+<style>
+:root{--bg:#0b0f0d;--panel:#121a15;--panel2:#0f1712;--line:#26332b;--text:#eef4ef;--muted:#93a69a;--green:#6ee744;--amber:#f0c75e;--red:#ff6c6c;--blue:#76a8ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+.wrap{max-width:960px;margin:auto;padding:40px 22px 90px}
+h1{font-size:32px;letter-spacing:-.02em;margin:0 0 4px}h1 span{color:var(--green)}
+h2{font-size:21px;margin:38px 0 10px;border-bottom:1px solid var(--line);padding-bottom:7px}
+h3{font-size:15px;margin:20px 0 5px}
+.sub{color:var(--muted);margin:0 0 26px}
+.card{background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:12px 0}
+.tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.04em;padding:3px 9px;border-radius:20px;margin-right:6px}
+.crit{background:#3a1414;color:#ff9b9b;border:1px solid #6d3030}
+.high{background:#3a2a12;color:#ffd177;border:1px solid #6c5a21}
+.med{background:#14243a;color:#9cc0ff;border:1px solid #2f4a6d}
+.low{background:#16341d;color:#8cf177;border:1px solid #2c7138}
+.ok{background:#16341d;color:#8cf177;border:1px solid #2c7138}
+.f{border-left:3px solid var(--line);padding:2px 0 2px 16px;margin:16px 0}
+.f.c{border-color:var(--red)}.f.h{border-color:var(--amber)}.f.m{border-color:var(--blue)}.f.l{border-color:#4d6b56}.f.g{border-color:var(--green)}
+.f b{font-size:15.5px}
+code{background:#0a130e;border:1px solid #26332b;border-radius:5px;padding:1px 6px;font-size:13px;color:#cfe6d5}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.04em}
+.big{font-size:26px;font-weight:800}.money{font-variant-numeric:tabular-nums}
+.pos{color:var(--green)}.neg{color:var(--red)}.amb{color:var(--amber)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:14px}
+.kpi small{color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:.06em}
+.kpi b{display:block;font-size:24px;margin-top:5px}
+ul{margin:6px 0 6px 0;padding-left:20px}li{margin:3px 0}
+.mut{color:var(--muted)}.hr{height:1px;background:var(--line);margin:30px 0}
+.verdict{background:#0f1712;border:1px solid #2c7138;border-left:4px solid var(--green);border-radius:10px;padding:18px 20px}
+</style></head><body><div class="wrap">
+
+<h1>Flip<span>Scope</span> — Technical Audit</h1>
+<p class="sub">Prepared by Powerclub Global · 2026-08-18 · Source reviewed: <code>flipscope_final_polished.html</code> (single file, 366 lines) + live Supabase backend</p>
+
+<div class="verdict">
+<b>Bottom line.</b> FlipScope is a <b>well-crafted single-file front-end prototype</b> — clean UI, sensible information architecture, 18 feature screens, and a real Supabase sync layer whose Row-Level Security we verified is actually enforced. It is <b>not yet a product</b>: the "AI" is keyword matching, the "live forecast" is hardcoded, uploaded media is never persisted, and — most seriously — the same project reports three contradictory profit numbers ranging from <span class="neg">−$5,250</span> to <span class="pos">+$35,550</span>. The foundation is genuinely good. The gap to a credible, sellable tool is a focused engineering pass, not a rebuild.</p>
+</div>
+
+<h2>What it actually is</h2>
+<p>A standalone HTML/CSS/JS application. State lives in <code>localStorage</code> under one key (<code>flipscope_worldclass_v1</code>) with a seeded demo project (212 E Maple, Perry OK). An optional Supabase layer (loaded from CDN) signs a user in and pushes/pulls the project across ~14 tables. There is no build step, no framework, no server of its own — it runs by opening the file. That is a strength for a demo and a limitation for a product.</p>
+
+<div class="grid">
+<div class="kpi"><small>Feature screens</small><b>18</b></div>
+<div class="kpi"><small>Lines of code</small><b>366</b></div>
+<div class="kpi"><small>Real backend</small><b>Supabase</b></div>
+</div>
+
+<h2>Severity summary</h2>
+<table>
+<tr><th>#</th><th>Finding</th><th>Severity</th><th>Area</th></tr>
+<tr><td>1</td><td>Three conflicting profit/ROI figures for the same project</td><td><span class="tag crit">CRITICAL</span></td><td>Correctness / trust</td></tr>
+<tr><td>2</td><td>Stored-XSS: user/cloud data injected into <code>innerHTML</code> unescaped</td><td><span class="tag crit">CRITICAL</span></td><td>Security</td></tr>
+<tr><td>3</td><td>Open account signup enabled on the Supabase project</td><td><span class="tag high">HIGH</span></td><td>Security</td></tr>
+<tr><td>4</td><td>"Live forecast", risk score & cashflow are static, never recomputed</td><td><span class="tag high">HIGH</span></td><td>Truth-in-advertising</td></tr>
+<tr><td>5</td><td>Field/verification photos & video never persist (object URLs only)</td><td><span class="tag high">HIGH</span></td><td>Product / data loss</td></tr>
+<tr><td>6</td><td>Data-access queries rely 100% on RLS, no owner filter (fragile)</td><td><span class="tag med">MEDIUM</span></td><td>Security depth</td></tr>
+<tr><td>7</td><td>Naive scheduler; unit-unaware duration estimates</td><td><span class="tag med">MEDIUM</span></td><td>Logic</td></tr>
+<tr><td>8</td><td>Hardcoded marketing numbers baked into a "data" screen</td><td><span class="tag med">MEDIUM</span></td><td>Correctness</td></tr>
+<tr><td>9</td><td>Single-project model; multi-project not really supported</td><td><span class="tag med">MEDIUM</span></td><td>Architecture</td></tr>
+<tr><td>10</td><td>Icon-only controls lack accessible names; secure-context features</td><td><span class="tag low">LOW</span></td><td>A11y / platform</td></tr>
+<tr><td>11</td><td>Uneven <code>owns_project</code> EXECUTE grant (cosmetic 401s)</td><td><span class="tag low">LOW</span></td><td>Backend hygiene</td></tr>
+</table>
+
+<h2>1 · The numbers don't agree <span class="tag crit">CRITICAL</span></h2>
+<p>This is the most damaging issue for an investor/lender-facing tool. FlipScope's own marketing copy says financials are "always reconciled." They are not. The same seed project produces:</p>
+<table>
+<tr><th>Screen</th><th>Label</th><th>Value</th><th>How it's computed</th></tr>
+<tr><td>Command Center / Sidebar</td><td>Projected Profit</td><td class="money pos">+$26,000 (14.5% ROI)</td><td><code>ARV − committed</code></td></tr>
+<tr><td>Command Center → Forecast</td><td>Forecast Profit</td><td class="money pos">+$35,550 (21.0% ROI)</td><td>hardcoded in seed; never recalculated</td></tr>
+<tr><td>Deal Underwriting</td><td>Net Profit</td><td class="money neg">−$5,250 (−2.6% margin)</td><td>full model incl. selling/holding/financing/contingency</td></tr>
+</table>
+<p>The Deal Underwriting model is the only <em>honest</em> one — it includes the ~$14,350 selling cost, financing, holding and contingency — and it says this deal <b>loses money</b> and flags "REVIEW DEAL." Meanwhile the home screen the user lands on celebrates a $26K profit. Worse, the "Forecast Final Cost" of <code>$169,450</code> is <em>lower</em> than the already-committed <code>$179,000</code>, which is logically impossible (a forecast of final cost can't be below money already committed).</p>
+<h3>Fix</h3>
+<ul>
+<li>Pick <b>one</b> profit engine — the Deal Underwriting model — and have every screen read from it. Delete <code>ARV − committed</code> as a "profit" (it's equity spread, label it as such).</li>
+<li>Make <code>forecast.profit/roi/finalCost</code> computed outputs, not seed constants.</li>
+<li>Add an invariant/test: <code>forecastFinalCost ≥ committed</code> and all screens show the same profit to the dollar.</li>
+</ul>
+
+<h2>2 · Stored XSS through innerHTML <span class="tag crit">CRITICAL</span></h2>
+<p>Almost every render function builds HTML with template strings and assigns to <code>innerHTML</code>, interpolating fields the user (or a co-worker on a shared cloud project) controls — scope task names, vendor names, member names, punch titles, daily-log text, the walkthrough transcript, and <code>prompt()</code> inputs. None are escaped. Examples:</p>
+<ul>
+<li><code>renderScope()</code> → <code>&lt;input value="${s.task}"&gt;</code> and row cells</li>
+<li><code>renderTeam()</code> → member <code>name</code>/<code>role</code>/<code>access</code></li>
+<li><code>renderMaterials()</code> → material <code>name</code>/<code>vendor</code> (pulled from Supabase)</li>
+<li><code>saveDailyLog()</code>/<code>renderField()</code>, <code>addCalendarTask()</code> via <code>prompt()</code></li>
+</ul>
+<p>A value like <code>&lt;img src=x onerror=...&gt;</code> saved in any of these fields executes when rendered. In single-user demo mode the blast radius is the user's own browser. But the whole selling point is <b>shared projects</b> (owner, PM, field crew, investor) syncing through Supabase — so a field user's malicious task name runs in the investor's session. This is a genuine stored-XSS vector the moment multi-user is real.</p>
+<h3>Fix</h3>
+<ul>
+<li>Add one <code>esc()</code> helper (<code>&amp; &lt; &gt; " '</code>) and wrap every interpolated value, or switch to <code>textContent</code>/<code>createElement</code> for user data.</li>
+<li>For attribute contexts (<code>value="${...}"</code>) escape quotes too — currently <code>resolveAction</code> only escapes single quotes for its <code>onclick</code>, which is not enough.</li>
+</ul>
+
+<h2>3 · Open signup on the backend <span class="tag high">HIGH</span></h2>
+<p>The Supabase auth settings endpoint reports <code>disable_signup: false</code>. Anyone with the (public, embedded) anon key can create accounts against this project via the API, even though the app itself has no signup UI — only <code>signInWithPassword</code>. RLS is owner-scoped so a stranger's account sees only their own empty project (not a data breach), but it's an unnecessary abuse surface: spam accounts, auth-quota consumption, confirmation-email volume.</p>
+<h3>Fix</h3>
+<ul>
+<li>Set <b>Disable signup</b> in Supabase Auth, and provision users by invite; or gate signup behind an allowlist / server function.</li>
+<li>Keep <code>mailer_autoconfirm: false</code> (already correct — good).</li>
+</ul>
+
+<div class="card"><span class="tag ok">VERIFIED GOOD</span> <b>RLS is genuinely enforced.</b> Non-destructive probes with the anon key: reads of <code>projects</code>/<code>scope_items</code>/<code>materials</code>/<code>schedules</code> return <code>[]</code> (filtered, not leaked); inserts into <code>projects</code> and <code>materials</code> were rejected with <code>new row violates row-level security policy</code>. No rows were created. The embedded <code>sb_publishable_…</code> key is a publishable key and is safe to ship <em>because</em> RLS is on. This is the single most important thing a Supabase app has to get right, and the colleague got it right.</div>
+
+<h2>4 · The "live" intelligence isn't live <span class="tag high">HIGH</span></h2>
+<p>Forecast, risk score, cashflow and the Copilot answers all read from static seed objects (<code>S.forecast</code>, <code>S.cashflow</code>, <code>S.risks</code>). Editing scope, awarding a bid, or approving a change order updates the basic metrics but <b>never</b> recomputes the forecast, risk score, or cash plan. The badges say "LIVE FORECAST" / "PROJECT AWARE." The Copilot is an <code>if/else</code> keyword matcher over those static numbers, and <code>analyzeWalkthrough()</code> ("Generate AI Scope") is likewise keyword matching over the transcript — no model call, no video understanding. That's fine for a prototype but must not be sold as AI.</p>
+<h3>Fix</h3>
+<ul>
+<li>Derive forecast/cashflow/risk from the actual scope+cost+schedule state, or clearly label them "Illustrative."</li>
+<li>If real AI is the pitch, wire <code>analyzeWalkthrough</code> and Copilot to an actual model (Claude) server-side — never with keys in the client.</li>
+</ul>
+
+<h2>5 · Field media evaporates <span class="tag high">HIGH</span></h2>
+<p><code>fieldMedia()</code> and the room/video uploads use <code>URL.createObjectURL()</code> and drop the element into the DOM. Nothing is uploaded to Supabase Storage. On reload every "timestamped project documentation" photo, the walkthrough video, and the designer room image are gone. For a product whose core promise is "proof before sign-off," verification evidence that doesn't persist is a foundational gap.</p>
+<h3>Fix</h3><ul><li>Upload media to Supabase Storage, store the object path/URL on the related row, render from storage. Add EXIF/time metadata for the "timestamped" claim.</li></ul>
+
+<h2>6 · Access control has no depth <span class="tag med">MEDIUM</span></h2>
+<p><code>ownedProject()</code> runs <code>select * from projects order by created_at desc limit 1</code> with <b>no owner filter</b> — it trusts RLS entirely to scope the row. <code>replaceRows()</code> does <code>delete … eq('project_id', id)</code>, again trusting RLS to stop cross-tenant deletes. Today RLS holds, so this is safe. But it's a single point of failure: one permissive policy edit, one migration that forgets a table, and this code silently serves or deletes another tenant's data. Defense-in-depth costs one line.</p>
+<h3>Fix</h3><ul><li>Add explicit <code>.eq('owner_id', userId)</code> to reads and a project-ownership check before <code>replaceRows</code>. Belt and suspenders with RLS, not instead of it.</li></ul>
+
+<h2>7 · Scheduler & estimates are naive <span class="tag med">MEDIUM</span></h2>
+<ul>
+<li><code>autoScheduleFromScope()</code> stacks every task end-to-end (cursor += full duration) — no parallel trades, no dependencies. Flooring waits for cabinets even though they're independent, inflating the timeline.</li>
+<li><code>estimateScopeDays()</code> is unit-blind: paint is <code>qty × 3</code> days regardless of unit, so a paint line entered in SF instead of LS produces thousands of days.</li>
+<li><code>awardBid()</code> maps a bid to a cost code by substring (<code>cat.includes(trade)</code>): trade "Cabinets" never matches cost code "Kitchen," so the commitment silently isn't recorded.</li>
+<li><code>commitCapture()</code> adds items with status <code>"AI Draft"</code>, which isn't one of the scope dropdown options — the select renders blank.</li>
+<li><code>approveChange()</code> appends a new cost row every click with no idempotency guard — double-clicking double-commits the change order.</li>
+</ul>
+
+<h2>8 · Hardcoded numbers on a data screen <span class="tag med">MEDIUM</span></h2>
+<p>Project Health shows "68 line items · 7 trades" and "34% of work verified complete"; the Reports page shows "Scope Completion 34%." The seed actually has 6 scope items across 6 trades and 0 verified. These are literal strings, not computed — they'll stay wrong on a real project and undermine trust the moment someone counts.</p>
+
+<h2>9 · One project, not a portfolio <span class="tag med">MEDIUM</span></h2>
+<p>localStorage uses a single fixed key and the cloud loader always pulls <em>the latest</em> project only. There's no project switcher, list, or creation flow in the UI. For a flipper running several deals — the obvious buyer — this is a hard ceiling. The DB schema supports multiple projects; the app doesn't.</p>
+
+<h2>10 · Accessibility & platform <span class="tag low">LOW</span></h2>
+<ul>
+<li>Icon-only buttons (<code>☰</code>, <code>×</code>, <code>•••</code>, record) have no accessible name; the <code>contenteditable</code> transcript has no label.</li>
+<li>Camera/mic and <code>webkitSpeechRecognition</code> need a secure context (https/localhost) and are Chrome-only — opening from <code>file://</code> or Safari, capture silently degrades. The graceful "upload instead" fallback is good; document the browser requirement.</li>
+</ul>
+
+<h2>11 · Backend hygiene <span class="tag low">LOW</span></h2>
+<p>Read probes returned <code>200 []</code> for some tables but <code>401 permission denied for function owns_project</code> for ~10 others (members, forecasts, actions, logs, changes, bids, warranties, closeout, punch, feed). The asymmetry means the <code>anon</code> role wasn't granted <code>EXECUTE</code> on <code>owns_project</code> uniformly. It fails <em>closed</em> (denies), so it's not a security hole — just an uneven migration worth tidying so behavior is consistent for legitimate authenticated users.</p>
+
+<div class="hr"></div>
+<h2>Recommended sequence (for the colleague)</h2>
+<table>
+<tr><th>Priority</th><th>Do this</th><th>Effort</th></tr>
+<tr><td><span class="tag crit">1</span></td><td>Unify on one profit engine (Deal model); every screen reads it; add the <code>final ≥ committed</code> invariant</td><td>~½ day</td></tr>
+<tr><td><span class="tag crit">2</span></td><td>Add <code>esc()</code> and escape all <code>innerHTML</code> interpolation of user/cloud data</td><td>~½ day</td></tr>
+<tr><td><span class="tag high">3</span></td><td>Disable open signup in Supabase; move to invite-only</td><td>~15 min</td></tr>
+<tr><td><span class="tag high">4</span></td><td>Persist field/room media to Supabase Storage</td><td>~1 day</td></tr>
+<tr><td><span class="tag high">5</span></td><td>Either compute forecast/risk/cashflow for real, or relabel as illustrative; stop calling keyword-matching "AI"</td><td>1–3 days</td></tr>
+<tr><td><span class="tag med">6</span></td><td>Add owner filters as RLS defense-in-depth; fix bid→cost mapping, scheduler dependencies, idempotency</td><td>~1 day</td></tr>
+<tr><td><span class="tag med">7</span></td><td>Compute the hardcoded counts; add a real multi-project switcher</td><td>1–2 days</td></tr>
+</table>
+
+<p class="mut" style="margin-top:26px">Scope of this audit: static source review of the single delivered HTML file, a headless render to confirm it runs clean (no console/network errors), and non-destructive black-box probing of the live Supabase backend with the embedded publishable key. No credentials were supplied, so authenticated data flows and server-side RLS policy source were assessed by inference, not read directly. A follow-up with read access to the Supabase policies and a real test account would let us verify the authenticated paths end-to-end.</p>
+
+</div></body></html>

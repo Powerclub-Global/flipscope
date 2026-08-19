@@ -1,0 +1,268 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FlipScope — Build Plan</title>
+<style>
+:root{--bg:#0b0f0d;--panel:#121a15;--panel2:#0f1712;--line:#26332b;--text:#eef4ef;--muted:#93a69a;--green:#6ee744;--green2:#43b82a;--amber:#f0c75e;--red:#ff6c6c;--blue:#76a8ff;--violet:#a58bff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.wrap{max-width:1000px;margin:auto;padding:40px 22px 100px}
+h1{font-size:34px;letter-spacing:-.02em;margin:0 0 4px}h1 span{color:var(--green)}
+h2{font-size:22px;margin:44px 0 10px;border-bottom:1px solid var(--line);padding-bottom:7px}
+h3{font-size:16px;margin:22px 0 6px}h4{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:16px 0 4px}
+.sub{color:var(--muted);margin:0 0 26px}
+.card{background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:12px 0}
+.lead{background:#0f1712;border:1px solid #2c7138;border-left:4px solid var(--green);border-radius:10px;padding:18px 20px}
+code{background:#0a130e;border:1px solid #26332b;border-radius:5px;padding:1px 6px;font-size:13px;color:#cfe6d5}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.04em}
+ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+.tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.03em;padding:3px 9px;border-radius:20px}
+.g{background:#16341d;color:#8cf177;border:1px solid #2c7138}.b{background:#14243a;color:#9cc0ff;border:1px solid #2f4a6d}
+.a{background:#3a2a12;color:#ffd177;border:1px solid #6c5a21}.v{background:#231a3a;color:#c3b0ff;border:1px solid #4a3f6d}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:720px){.two{grid-template-columns:1fr}}
+.mut{color:var(--muted)}.sm{font-size:12.5px}
+.hr{height:1px;background:var(--line);margin:34px 0}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:14px}
+.kpi small{color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:.06em}.kpi b{display:block;font-size:22px;margin-top:5px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}
+.diagram{overflow-x:auto;margin:16px 0;background:#0a130e;border:1px solid var(--line);border-radius:12px;padding:16px}
+.diagram svg{display:block;min-width:640px;width:100%;height:auto}
+.cap{color:var(--muted);font-size:12px;margin:6px 2px 0}
+.mile{border:1px solid var(--line);border-radius:12px;padding:0;margin:16px 0;overflow:hidden}
+.mile .top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.mile.m1 .top{background:#122b19}.mile.m2 .top{background:#141f31}.mile.m3 .top{background:#2b230f}
+.mile .top h3{margin:0;font-size:18px}.mile .top .wk{font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap}
+.mile .in{padding:14px 18px}
+.gate{background:#0a130e;border:1px dashed #3a5542;border-radius:8px;padding:10px 12px;margin-top:10px;font-size:13px}
+.phase{border-left:3px solid var(--line);padding:2px 0 6px 15px;margin:14px 0}
+.phase h4{color:var(--text);text-transform:none;font-size:14px;letter-spacing:0;margin:0 0 3px}
+.phase .wk{float:right;font-size:11px;color:var(--muted);font-weight:700}
+</style></head><body><div class="wrap">
+
+<h1>Flip<span>Scope</span> — Build Plan</h1>
+<p class="sub">Property-to-profit management platform · Engineering roadmap · 2026-08-18</p>
+
+<div class="lead">
+<b>What FlipScope is.</b> A platform that takes a real-estate flip from the first property walkthrough to verified profit: capture the walkthrough once, turn it into a priced scope of work, design the finished space, run the job on schedule with proof-of-work verification, and keep budget, cost, and ROI live and correct throughout — across an entire portfolio of properties. This plan covers the build from the current prototype to a production release, organized around three milestones: <b>MVP → Beta → Production</b>.</p>
+</div>
+
+<div class="grid3">
+<div class="kpi"><small>Milestones</small><b>MVP · Beta · Prod</b></div>
+<div class="kpi"><small>Phases</small><b>6</b></div>
+<div class="kpi"><small>To Production</small><b>~4 months</b></div>
+</div>
+
+<h2>1 · System architecture</h2>
+<p>FlipScope is a web application backed by a managed Postgres platform (Supabase), with an AI service layer reached only through server-side functions so no keys or model calls ever live in the browser.</p>
+<div class="diagram">
+<svg viewBox="0 0 900 360" role="img" aria-label="FlipScope system architecture">
+<defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6ee744"/></marker></defs>
+<!-- Client -->
+<rect x="40" y="30" width="300" height="90" rx="10" fill="#101c14" stroke="#3a5542"/>
+<text x="60" y="56" fill="#6ee744" font-size="13" font-weight="700">CLIENT</text>
+<text x="60" y="78" fill="#eef4ef" font-size="13">React + TypeScript web app (PWA)</text>
+<text x="60" y="98" fill="#93a69a" font-size="11.5">Owner · PM · Field · Investor · Sub views</text>
+<!-- Edge functions -->
+<rect x="40" y="170" width="300" height="72" rx="10" fill="#101c14" stroke="#3a5542"/>
+<text x="60" y="196" fill="#76a8ff" font-size="13" font-weight="700">SERVER FUNCTIONS (Edge)</text>
+<text x="60" y="218" fill="#eef4ef" font-size="12.5">Secrets · financial engine · AI calls</text>
+<!-- Supabase -->
+<rect x="40" y="285" width="470" height="56" rx="10" fill="#101c14" stroke="#3a5542"/>
+<text x="60" y="309" fill="#6ee744" font-size="13" font-weight="700">SUPABASE</text>
+<text x="150" y="309" fill="#eef4ef" font-size="12">Postgres · Auth · Storage · RLS · Realtime</text>
+<text x="60" y="328" fill="#93a69a" font-size="11">Row-level security enforces tenant &amp; role on every row</text>
+<!-- AI services -->
+<rect x="560" y="170" width="300" height="171" rx="10" fill="#160f24" stroke="#4a3f6d"/>
+<text x="580" y="196" fill="#a58bff" font-size="13" font-weight="700">AI SERVICE LAYER</text>
+<text x="580" y="220" fill="#eef4ef" font-size="12.5">Transcription (voice → text)</text>
+<text x="580" y="242" fill="#eef4ef" font-size="12.5">LLM scope engine (structured)</text>
+<text x="580" y="264" fill="#eef4ef" font-size="12.5">Project-aware Copilot</text>
+<text x="580" y="286" fill="#eef4ef" font-size="12.5">Image pipeline (Designer)</text>
+<text x="580" y="322" fill="#93a69a" font-size="11">Reached only via server functions — never the client</text>
+<!-- arrows -->
+<line x1="190" y1="120" x2="190" y2="168" stroke="#6ee744" stroke-width="2" marker-end="url(#ar)"/>
+<line x1="190" y1="242" x2="190" y2="283" stroke="#6ee744" stroke-width="2" marker-end="url(#ar)"/>
+<line x1="340" y1="206" x2="558" y2="206" stroke="#6ee744" stroke-width="2" marker-end="url(#ar)"/>
+<text x="196" y="150" fill="#93a69a" font-size="10.5">reads/writes</text>
+<text x="360" y="198" fill="#93a69a" font-size="10.5">requests</text>
+</svg>
+</div>
+<p class="cap">Client talks to the database directly for ordinary reads/writes (guarded by row-level security) and routes any sensitive or AI work through server functions.</p>
+
+<h4>Correctness &amp; security baked in from day one</h4>
+<ul class="sm">
+<li><b>One financial engine.</b> All money stored as integer cents; a single server-side model computes budget, committed, actual, profit and ROI so every screen shows the same numbers.</li>
+<li><b>Tenant isolation.</b> Row-level security gates every table on organization membership, then role. Verified by an automated policy test suite in CI.</li>
+<li><b>Proof-chain media.</b> Photos and video stored with uploader, timestamp and location; they persist and back the verification trail.</li>
+<li><b>Audit log.</b> Append-only record of every change — the backbone of approvals and investor trust.</li>
+<li><b>Separate environments.</b> Development, staging and production run on isolated databases.</li>
+</ul>
+
+<h2>2 · Tenancy &amp; data model</h2>
+<p>The account structure is multi-tenant from the first line of code, so the platform can run one organization&rsquo;s portfolio today and many organizations later without re-architecture.</p>
+<div class="diagram">
+<svg viewBox="0 0 900 300" role="img" aria-label="FlipScope tenancy hierarchy">
+<rect x="330" y="24" width="240" height="46" rx="9" fill="#122b19" stroke="#2c7138"/>
+<text x="450" y="46" fill="#8cf177" font-size="13" font-weight="700" text-anchor="middle">ORGANIZATION</text>
+<text x="450" y="62" fill="#93a69a" font-size="10.5" text-anchor="middle">tenant · members &amp; roles</text>
+
+<rect x="330" y="104" width="240" height="42" rx="9" fill="#101c14" stroke="#3a5542"/>
+<text x="450" y="130" fill="#eef4ef" font-size="13" text-anchor="middle">PORTFOLIO</text>
+
+<rect x="230" y="182" width="200" height="42" rx="9" fill="#101c14" stroke="#3a5542"/>
+<text x="330" y="208" fill="#eef4ef" font-size="13" text-anchor="middle">PROPERTY</text>
+<rect x="470" y="182" width="200" height="42" rx="9" fill="#101c14" stroke="#3a5542"/>
+<text x="570" y="208" fill="#eef4ef" font-size="13" text-anchor="middle">PROPERTY</text>
+
+<rect x="230" y="256" width="200" height="36" rx="8" fill="#0f1712" stroke="#26332b"/>
+<text x="330" y="279" fill="#93a69a" font-size="12" text-anchor="middle">PROJECT (rehab)</text>
+<rect x="470" y="256" width="200" height="36" rx="8" fill="#0f1712" stroke="#26332b"/>
+<text x="570" y="279" fill="#93a69a" font-size="12" text-anchor="middle">PROJECT (rehab)</text>
+
+<!-- roles sidebar -->
+<rect x="650" y="24" width="220" height="120" rx="9" fill="#101c14" stroke="#3a5542"/>
+<text x="668" y="46" fill="#76a8ff" font-size="12" font-weight="700">ROLES</text>
+<text x="668" y="68" fill="#eef4ef" font-size="11.5">Owner · full access</text>
+<text x="668" y="86" fill="#eef4ef" font-size="11.5">Project Manager</text>
+<text x="668" y="104" fill="#eef4ef" font-size="11.5">Field Crew · proof upload</text>
+<text x="668" y="122" fill="#eef4ef" font-size="11.5">Investor · read-only</text>
+<text x="668" y="138" fill="#eef4ef" font-size="11.5">Subcontractor</text>
+
+<line x1="450" y1="70" x2="450" y2="102" stroke="#43b82a" stroke-width="2"/>
+<line x1="450" y1="146" x2="450" y2="164" stroke="#43b82a" stroke-width="2"/>
+<line x1="330" y1="164" x2="330" y2="180" stroke="#43b82a" stroke-width="2"/>
+<line x1="570" y1="164" x2="570" y2="180" stroke="#43b82a" stroke-width="2"/>
+<line x1="230" y1="164" x2="670" y2="164" stroke="#43b82a" stroke-width="2"/>
+<line x1="330" y1="224" x2="330" y2="254" stroke="#43b82a" stroke-width="2"/>
+<line x1="570" y1="224" x2="570" y2="254" stroke="#43b82a" stroke-width="2"/>
+</svg>
+</div>
+<p class="cap">Every row carries an organization id; access policies check organization membership first, then role. A project holds the scope, schedule, financials, field logs and closeout for one rehab.</p>
+
+<h2>3 · The AI capture pipeline</h2>
+<p>The signature feature: walk the property once, talking naturally, and get a priced, editable scope of work back — no manual line-item entry. This is what sets FlipScope apart from a spreadsheet.</p>
+<div class="diagram">
+<svg viewBox="0 0 900 150" role="img" aria-label="FlipScope AI capture pipeline">
+<defs><marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#a58bff"/></marker></defs>
+<g font-size="12">
+<rect x="20" y="45" width="140" height="60" rx="9" fill="#101c14" stroke="#3a5542"/>
+<text x="90" y="72" fill="#eef4ef" text-anchor="middle" font-weight="700">Walkthrough</text>
+<text x="90" y="90" fill="#93a69a" text-anchor="middle" font-size="11">video + voice</text>
+
+<rect x="205" y="45" width="140" height="60" rx="9" fill="#101c14" stroke="#3a5542"/>
+<text x="275" y="72" fill="#eef4ef" text-anchor="middle" font-weight="700">Transcription</text>
+<text x="275" y="90" fill="#93a69a" text-anchor="middle" font-size="11">voice → text</text>
+
+<rect x="390" y="45" width="150" height="60" rx="9" fill="#160f24" stroke="#4a3f6d"/>
+<text x="465" y="72" fill="#c3b0ff" text-anchor="middle" font-weight="700">LLM scope engine</text>
+<text x="465" y="90" fill="#93a69a" text-anchor="middle" font-size="11">structured output</text>
+
+<rect x="585" y="45" width="150" height="60" rx="9" fill="#101c14" stroke="#3a5542"/>
+<text x="660" y="68" fill="#eef4ef" text-anchor="middle" font-weight="700">Priced scope</text>
+<text x="660" y="86" fill="#93a69a" text-anchor="middle" font-size="11">editable · human</text>
+<text x="660" y="99" fill="#93a69a" text-anchor="middle" font-size="11">in the loop</text>
+
+<rect x="780" y="45" width="100" height="60" rx="9" fill="#122b19" stroke="#2c7138"/>
+<text x="830" y="72" fill="#8cf177" text-anchor="middle" font-weight="700">Project</text>
+<text x="830" y="90" fill="#93a69a" text-anchor="middle" font-size="11">committed</text>
+
+<line x1="160" y1="75" x2="203" y2="75" stroke="#a58bff" stroke-width="2" marker-end="url(#ar2)"/>
+<line x1="345" y1="75" x2="388" y2="75" stroke="#a58bff" stroke-width="2" marker-end="url(#ar2)"/>
+<line x1="540" y1="75" x2="583" y2="75" stroke="#a58bff" stroke-width="2" marker-end="url(#ar2)"/>
+<line x1="735" y1="75" x2="778" y2="75" stroke="#a58bff" stroke-width="2" marker-end="url(#ar2)"/>
+</g>
+</svg>
+</div>
+<p class="cap">The same service layer powers the project-aware Copilot (questions about cost, cash, schedule and risk) and the AI Designer (real room re-design renders). Everything runs server-side.</p>
+
+<h2>4 · Milestones &amp; roadmap</h2>
+<p>The six phases roll up into three release milestones. A milestone is a readiness bar, not just &ldquo;phases done&rdquo; — each has a gate that must be met before the next milestone begins.</p>
+
+<div class="diagram">
+<svg viewBox="0 0 900 240" role="img" aria-label="FlipScope milestone roadmap timeline">
+<!-- week axis -->
+<line x1="90" y1="200" x2="860" y2="200" stroke="#26332b" stroke-width="1"/>
+<g fill="#6b7c72" font-size="10" text-anchor="middle">
+<text x="90" y="220">wk 0</text><text x="292" y="220">wk 5</text><text x="492" y="220">wk 9</text><text x="670" y="220">wk 13</text><text x="850" y="220">wk 17</text>
+</g>
+<!-- milestone bands (labels) -->
+<g font-size="12" font-weight="700">
+<rect x="90" y="26" width="312" height="22" rx="5" fill="#122b19" stroke="#2c7138"/><text x="100" y="41" fill="#8cf177">MVP · internal use</text>
+<rect x="402" y="26" width="268" height="22" rx="5" fill="#141f31" stroke="#2f4a6d"/><text x="412" y="41" fill="#9cc0ff">BETA · feature-complete</text>
+<rect x="670" y="26" width="190" height="22" rx="5" fill="#2b230f" stroke="#6c5a21"/><text x="680" y="41" fill="#ffd177">PRODUCTION</text>
+</g>
+<!-- phase bars -->
+<g font-size="11" fill="#0b0f0d" font-weight="700" text-anchor="middle">
+<rect x="90" y="120" width="134" height="30" rx="6" fill="#55cd42"/><text x="157" y="140">P0 Foundation</text>
+<rect x="226" y="120" width="88" height="30" rx="6" fill="#55cd42"/><text x="270" y="140">P1 Trust</text>
+<rect x="316" y="120" width="86" height="30" rx="6" fill="#55cd42"/><text x="359" y="140">P2 Port.</text>
+<rect x="404" y="120" width="132" height="30" rx="6" fill="#6f9dff"/><text x="470" y="140">P3 AI</text>
+<rect x="538" y="120" width="130" height="30" rx="6" fill="#6f9dff"/><text x="603" y="140">P4 Integr.</text>
+<rect x="670" y="120" width="188" height="30" rx="6" fill="#f0c75e"/><text x="764" y="140">P5 Field &amp; Designer</text>
+</g>
+<!-- milestone flags -->
+<g>
+<line x1="402" y1="60" x2="402" y2="118" stroke="#6ee744" stroke-width="2" stroke-dasharray="3 3"/>
+<circle cx="402" cy="60" r="5" fill="#6ee744"/><text x="402" y="80" fill="#8cf177" font-size="11" font-weight="700" text-anchor="middle">MVP</text>
+<line x1="670" y1="60" x2="670" y2="118" stroke="#76a8ff" stroke-width="2" stroke-dasharray="3 3"/>
+<circle cx="670" cy="60" r="5" fill="#76a8ff"/><text x="670" y="80" fill="#9cc0ff" font-size="11" font-weight="700" text-anchor="middle">BETA</text>
+<line x1="858" y1="60" x2="858" y2="118" stroke="#f0c75e" stroke-width="2" stroke-dasharray="3 3"/>
+<circle cx="858" cy="60" r="5" fill="#f0c75e"/><text x="840" y="80" fill="#ffd177" font-size="11" font-weight="700" text-anchor="middle">GA</text>
+</g>
+</svg>
+</div>
+<p class="cap">Approximate timeline — 6 phases across ~17 weeks, gated into three releases.</p>
+
+<div class="mile m1">
+<div class="top"><h3><span class="tag g">MILESTONE 1</span> &nbsp;MVP — Internal Use</h3><span class="wk">Phases 0–2 · ~6–7 weeks</span></div>
+<div class="in">
+<p class="sm mut">The smallest version that is genuinely production-grade: a real, secure app with trustworthy numbers that a portfolio can be run on.</p>
+
+<div class="phase"><span class="wk">2–3 wks</span><h4>Phase 0 — Foundation</h4>
+<span class="sm">React/TypeScript app scaffold · multi-tenant schema (Org → Portfolio → Property → Project) · money-in-cents &amp; single financial engine · dev/staging/prod split · CI with tenant-isolation tests.</span></div>
+
+<div class="phase"><span class="wk">2 wks</span><h4>Phase 1 — Trust, roles &amp; evidence</h4>
+<span class="sm">Role-based access · append-only audit log · persistent proof-chain media · read-only investor view.</span></div>
+
+<div class="phase"><span class="wk">2 wks</span><h4>Phase 2 — Portfolio layer</h4>
+<span class="sm">Cross-property rollups · blended ROI · combined cash-flow calendar · risk heatmap · deal greenlight view.</span></div>
+
+<div class="gate"><b>MVP gate.</b> The portfolio can be run internally on live deals: multiple properties under one organization, every financial figure consistent to the cent, proof photos that persist, and a working portfolio rollup view.</div>
+</div></div>
+
+<div class="mile m2">
+<div class="top"><h3><span class="tag b">MILESTONE 2</span> &nbsp;Beta — Feature-Complete</h3><span class="wk">Phases 3–4 · ~4–7 weeks</span></div>
+<div class="in">
+<p class="sm mut">The differentiators land and the tool connects to the outside world; a wider set of users runs it on real projects.</p>
+
+<div class="phase" style="border-color:#2f4a6d"><span class="wk">2–4 wks</span><h4>Phase 3 — AI scope capture &amp; Copilot</h4>
+<span class="sm">Walkthrough → transcription → structured, priced scope · project-aware Copilot · forecast/risk computed from live project state.</span></div>
+
+<div class="phase" style="border-color:#2f4a6d"><span class="wk">2–3 wks</span><h4>Phase 4 — Integrations</h4>
+<span class="sm">Comps/ARV data feed (replaces typed-in ARV) · e-signature for change orders &amp; approvals · SMS/email notifications · accounting sync.</span></div>
+
+<div class="gate"><b>Beta gate.</b> A recorded walkthrough produces an editable, priced scope end-to-end; ARV pulls from real comparables; a change order is approved with a binding signature; a small group beyond the core team uses it without hand-holding.</div>
+</div></div>
+
+<div class="mile m3">
+<div class="top"><h3><span class="tag a">MILESTONE 3</span> &nbsp;Production — General Availability</h3><span class="wk">Phase 5 + hardening · ~3–4 weeks</span></div>
+<div class="in">
+<p class="sm mut">Reliability, field readiness and polish to a bar that supports daily on-site use and future external organizations.</p>
+
+<div class="phase" style="border-color:#6c5a21"><span class="wk">3–4 wks</span><h4>Phase 5 — Field, Designer &amp; readiness</h4>
+<span class="sm">Field PWA with offline capture &amp; conflict-safe sync · real AI Designer (room re-design renders) · performance/security hardening · dormant onboarding scaffolding for additional organizations.</span></div>
+
+<div class="gate"><b>Production gate.</b> Crews work offline on-site and sync cleanly; the Designer produces real redesigned imagery; security and performance targets are met; a second organization could be provisioned within a day.</div>
+</div></div>
+
+<h2>5 · What&rsquo;s needed to start Phase 0</h2>
+<ul>
+<li>A dedicated Supabase project (schema, security policies and migrations set up as part of Phase 0).</li>
+<li>The first organization&rsquo;s details — initial members &amp; roles, and the first property/portfolio to seed.</li>
+<li>Access to the AI service endpoints the platform will call (transcription, LLM, image pipeline).</li>
+<li>A source repository with continuous integration.</li>
+</ul>
+
+<p class="mut sm" style="margin-top:26px">FlipScope Build Plan · 2026-08-18 · Companion to the FlipScope Technical Audit.</p>
+
+</div></body></html>

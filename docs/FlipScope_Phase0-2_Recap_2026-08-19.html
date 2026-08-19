@@ -1,0 +1,157 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FlipScope — Phase 0–2 Recap</title>
+<style>
+:root{--bg:#0b0f0d;--panel:#121a15;--panel2:#0f1712;--line:#26332b;--text:#eef4ef;--muted:#93a69a;--green:#6ee744;--green2:#43b82a;--amber:#f0c75e;--red:#ff6c6c;--blue:#76a8ff;--violet:#a58bff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.wrap{max-width:1000px;margin:auto;padding:40px 22px 100px}
+h1{font-size:34px;letter-spacing:-.02em;margin:0 0 4px}h1 span{color:var(--green)}
+h2{font-size:22px;margin:44px 0 10px;border-bottom:1px solid var(--line);padding-bottom:7px}
+h3{font-size:16px;margin:22px 0 6px}
+.sub{color:var(--muted);margin:0 0 26px}
+.card{background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:12px 0}
+.lead{background:#0f1712;border:1px solid #2c7138;border-left:4px solid var(--green);border-radius:10px;padding:18px 20px}
+code{background:#0a130e;border:1px solid #26332b;border-radius:5px;padding:1px 6px;font-size:13px;color:#cfe6d5}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.04em}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+.tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.03em;padding:3px 9px;border-radius:20px}
+.g{background:#16341d;color:#8cf177;border:1px solid #2c7138}.a{background:#3a2a12;color:#ffd177;border:1px solid #6c5a21}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:720px){.two{grid-template-columns:1fr}.grid4{grid-template-columns:1fr 1fr}}
+.mut{color:var(--muted)}.sm{font-size:12.5px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:14px}
+.kpi small{color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:.06em}.kpi b{display:block;font-size:22px;margin-top:5px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0}
+.tree{background:#0a130e;border:1px solid var(--line);border-radius:12px;padding:16px 18px;font:12.5px/1.75 ui-monospace,Menlo,Consolas,monospace;overflow-x:auto;white-space:pre}
+.tree b{color:var(--green)}.tree i{color:var(--muted);font-style:normal}.tree .hl{color:#9cc0ff}
+.diagram{overflow-x:auto;margin:16px 0;background:#0a130e;border:1px solid var(--line);border-radius:12px;padding:16px}
+.diagram svg{display:block;min-width:640px;width:100%;height:auto}
+.cap{color:var(--muted);font-size:12px;margin:6px 2px 0}
+.bar{display:grid;grid-template-columns:170px 1fr 90px;gap:10px;align-items:center;margin:7px 0;font-size:12.5px}
+.bar .track{height:14px;background:#1b2a20;border-radius:99px;overflow:hidden}
+.bar .track i{display:block;height:100%;background:linear-gradient(90deg,var(--green2),var(--green))}
+.bar .n{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+</style></head><body><div class="wrap">
+
+<h1>Flip<span>Scope</span> — Phase 0–2 Recap</h1>
+<p class="sub">What we started with, what exists now, and why the structure matters · 2026-08-19</p>
+
+<div class="lead">
+<b>One day, three phases.</b> FlipScope went from a single demo HTML file with no backend to a tested, multi-tenant application: real authentication, a provable financial engine, an unerasable audit trail, proof-chain media, portfolio risk &amp; cash-flow analytics, and the full 18-page concept UI — with every security and money guarantee enforced by the database and verified by 36 automated tests running in CI on every change.
+</div>
+
+<h2>1 · Before → after</h2>
+<div class="grid4">
+<div class="kpi"><small>Starting files</small><b>1</b></div>
+<div class="kpi"><small>Starting backend</small><b>none</b></div>
+<div class="kpi"><small>Files now</small><b>35</b></div>
+<div class="kpi"><small>Tests now</small><b>36 · all green</b></div>
+</div>
+
+<table>
+<tr><th></th><th>Concept (what we started with)</th><th>Now (Phases 0–2 complete)</th></tr>
+<tr><td><b>Code</b></td><td>1 file · 365 lines · 94&nbsp;KB of minified HTML/CSS/JS</td><td>35 files · ~2,240 hand-written lines (~115&nbsp;KB) across SQL, TypeScript and CI — plus the concept's 22&nbsp;KB of CSS &amp; demo data ported intact</td></tr>
+<tr><td><b>Data</b></td><td>Hard-coded demo object in the browser; refresh = nothing saved</td><td>Postgres with migrations; every change persists, is attributed, and is audited</td></tr>
+<tr><td><b>Money math</b></td><td>Floating-point JS re-computed per screen</td><td>Integer cents, one server-side engine; portfolio totals provably equal project sums to the cent</td></tr>
+<tr><td><b>Security</b></td><td>None — anyone with the file sees everything</td><td>Real auth, 5 roles, deny-by-default row-level security; crew can't read financials even via raw API</td></tr>
+<tr><td><b>Tenancy</b></td><td>Single hard-coded project</td><td>Org → Portfolio → Property → Project; ready for Hanger today, more orgs later without re-architecture</td></tr>
+<tr><td><b>Evidence</b></td><td>Decorative photo grid</td><td>Proof-chain media: uploader, timestamp, GPS — can never be edited or deleted</td></tr>
+<tr><td><b>Quality gate</b></td><td>None</td><td>CI on every push: lint, typecheck, build, fresh-DB migrations + 36 pgTAP tests</td></tr>
+</table>
+
+<h3>Where the ~2,240 hand-written lines live</h3>
+<div class="card">
+<div class="bar"><span>App UI (React/TS)</span><div class="track"><i style="width:100%"></i></div><span class="n">1,164 lines</span></div>
+<div class="bar"><span>Schema migrations (SQL)</span><div class="track"><i style="width:43%"></i></div><span class="n">503 lines</span></div>
+<div class="bar"><span>pgTAP test suites (SQL)</span><div class="track"><i style="width:28%"></i></div><span class="n">325 lines</span></div>
+<div class="bar"><span>Dev seed data (SQL)</span><div class="track"><i style="width:6%"></i></div><span class="n">64 lines</span></div>
+<div class="bar"><span>CI pipeline (YAML)</span><div class="track"><i style="width:3%"></i></div><span class="n">37 lines</span></div>
+</div>
+<p class="cap">Six commits on <code>Powerclub-Global/flipscope</code>, every one CI-green. Roughly 1 line of test for every 1.5 lines of schema — the money and security guarantees are the most-tested code in the repo, on purpose.</p>
+
+<h2>2 · The file structure, and why it's shaped this way</h2>
+<div class="tree"><b>flipscope/</b>
+├── <b>supabase/</b>                      <i>← the source of truth</i>
+│   ├── <b>migrations/</b>               <i>the database IS the product's guarantees</i>
+│   │   ├── 001_foundation.sql        <span class="hl">tenancy · money engine · RLS          (257)</span>
+│   │   ├── 002_trust_evidence.sql    <span class="hl">audit log · proof media               (142)</span>
+│   │   └── 003_portfolio_layer.sql   <span class="hl">cash flow · risk scoring              (104)</span>
+│   ├── <b>tests/</b>                    <i>proof the guarantees hold</i>
+│   │   ├── 001_tenant_isolation      <span class="hl">12 tests — orgs can never see each other</span>
+│   │   ├── 002_trust_evidence        <span class="hl">14 tests — nothing is erasable or forgeable</span>
+│   │   └── 003_portfolio_layer       <span class="hl">10 tests — rollups exact to the cent</span>
+│   └── seed.sql                      <i>3 dev logins · 2 demo properties</i>
+├── <b>src/</b>
+│   ├── <b>lib/</b>                      <i>the ONLY paths to data</i>
+│   │   ├── supabase.ts               <i>client, env-guarded</i>
+│   │   ├── financials.ts             <span class="hl">screens get money ONLY via engine RPCs</span>
+│   │   └── data.ts                   <i>roles · audit · proof · risk · cashflow</i>
+│   ├── <b>pages/</b>
+│   │   ├── live.tsx                  <span class="hl">7 pages wired to the real backend</span>
+│   │   └── preview.tsx               <i>11 concept pages awaiting Phases 3–5</i>
+│   ├── <b>concept/</b>seed.ts            <i>original demo data, ported verbatim</i>
+│   ├── App.tsx                       <i>auth gate + 18-page shell</i>
+│   └── index.css                     <i>concept CSS, lifted wholesale</i>
+└── <b>.github/workflows/</b>ci.yml       <i>the merge gate: nothing lands unproven</i></div>
+
+<h3>Why this structure is valuable</h3>
+<div class="two">
+<div class="card sm"><b>1 · Guarantees live in the database, not the app.</b><br>
+Tenant isolation, role limits, append-only ledgers — all enforced by Postgres itself. A buggy screen, a malicious API call, even a future mobile app can't bypass them. The migrations folder <i>is</i> the product's trust story, in ~500 auditable lines.</div>
+<div class="card sm"><b>2 · Every guarantee has a test with its name on it.</b><br>
+Migration 001 pairs with test 001, 002 with 002, 003 with 003. When an investor asks "how do I know the numbers are real?", the answer is a named file with 36 assertions that run on every single change.</div>
+<div class="card sm"><b>3 · One door to the money.</b><br>
+No screen computes a dollar figure. Everything flows through <code>financials.ts</code> → the server-side engine. Two screens can never disagree — the class of bug that kills trust in spreadsheet-run flips is structurally impossible.</div>
+<div class="card sm"><b>4 · Live and preview pages are separate files.</b><br>
+<code>live.tsx</code> is real; <code>preview.tsx</code> is the concept vision with an honest amber pill. Phases 3–5 are executed by moving pages from one file to the other — the roadmap is literally visible in the file structure.</div>
+</div>
+
+<h2>3 · What each phase added</h2>
+<div class="diagram">
+<svg viewBox="0 0 900 210" role="img" aria-label="Phase 0-2 layer stack">
+<defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6ee744"/></marker></defs>
+<g font-size="12">
+<rect x="20" y="30" width="270" height="150" rx="10" fill="#122b19" stroke="#2c7138"/>
+<text x="40" y="56" fill="#8cf177" font-weight="700">PHASE 0 · FOUNDATION</text>
+<text x="40" y="82" fill="#eef4ef" font-size="11.5">Org → Portfolio → Property → Project</text>
+<text x="40" y="102" fill="#eef4ef" font-size="11.5">Money as integer cents, one engine</text>
+<text x="40" y="122" fill="#eef4ef" font-size="11.5">Deny-by-default RLS</text>
+<text x="40" y="142" fill="#eef4ef" font-size="11.5">CI + 12 isolation tests</text>
+<text x="40" y="166" fill="#93a69a" font-size="10.5">trustworthy numbers</text>
+
+<rect x="320" y="30" width="270" height="150" rx="10" fill="#141f31" stroke="#2f4a6d"/>
+<text x="340" y="56" fill="#9cc0ff" font-weight="700">PHASE 1 · TRUST &amp; EVIDENCE</text>
+<text x="340" y="82" fill="#eef4ef" font-size="11.5">Append-only audit log</text>
+<text x="340" y="102" fill="#eef4ef" font-size="11.5">Proof media: who · when · where</text>
+<text x="340" y="122" fill="#eef4ef" font-size="11.5">5-role matrix, DB-enforced</text>
+<text x="340" y="142" fill="#eef4ef" font-size="11.5">Investor read-only · 14 tests</text>
+<text x="340" y="166" fill="#93a69a" font-size="10.5">unerasable history</text>
+
+<rect x="620" y="30" width="260" height="150" rx="10" fill="#2b230f" stroke="#6c5a21"/>
+<text x="640" y="56" fill="#ffd177" font-weight="700">PHASE 2 · PORTFOLIO</text>
+<text x="640" y="82" fill="#eef4ef" font-size="11.5">Cross-property rollups, exact</text>
+<text x="640" y="102" fill="#eef4ef" font-size="11.5">Monthly cash-flow engine</text>
+<text x="640" y="122" fill="#eef4ef" font-size="11.5">Risk: green / amber / red</text>
+<text x="640" y="142" fill="#eef4ef" font-size="11.5">10 tests</text>
+<text x="640" y="166" fill="#93a69a" font-size="10.5">run the whole book</text>
+
+<line x1="290" y1="105" x2="318" y2="105" stroke="#6ee744" stroke-width="2" marker-end="url(#ar)"/>
+<line x1="590" y1="105" x2="618" y2="105" stroke="#6ee744" stroke-width="2" marker-end="url(#ar)"/>
+</g>
+</svg>
+</div>
+<p class="cap">Each layer builds strictly on the one before it — the portfolio math is only trustworthy because the ledger beneath it is append-only, which is only meaningful because tenancy and roles beneath <i>that</i> are database-enforced.</p>
+
+<h2>4 · Status &amp; what's next</h2>
+<table>
+<tr><th>Milestone</th><th>Status</th><th>Remaining</th></tr>
+<tr><td><b>MVP</b> — Phases 0–2</td><td><span class="tag g">BUILT &amp; TESTED</span></td><td>Gate needs real-world switches: cloud Supabase (your login), real Hanger members &amp; properties, public deploy</td></tr>
+<tr><td><b>Beta</b> — Phases 3–4</td><td><span class="tag a">NEXT</span></td><td>AI walkthrough → priced scope, Copilot (needs Anthropic key); scope/schedule/change-order tables — all buildable locally</td></tr>
+<tr><td><b>GA</b> — Phase 5</td><td><span class="tag a">PLANNED</span></td><td>Offline field PWA, AI Designer renders, hardening</td></tr>
+</table>
+
+<p class="mut sm" style="margin-top:26px">FlipScope Phase 0–2 Recap · 2026-08-19 · Repo: Powerclub-Global/flipscope · Companion to the Build Plan and Execution Plan.</p>
+
+</div></body></html>
