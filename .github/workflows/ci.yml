@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.115.0  # pinned: 'latest' resolution is rate-limited on shared runners
       # Applies every migration to a fresh Postgres, then runs the pgTAP
       # suite in supabase/tests. A failing isolation test blocks the merge.
       - run: supabase db start
