@@ -16,11 +16,22 @@ values (
   '', '', '', ''
 );
 
+-- Same password for every seeded dev login.
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at,
+                        confirmation_token, recovery_token, email_change_token_new, email_change)
+values
+  ('11111111-1111-1111-1111-111111111112', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+   'investor@flipscope.local', crypt('flipscope-dev', gen_salt('bf')), now(), now(), now(), '', '', '', ''),
+  ('11111111-1111-1111-1111-111111111113', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+   'crew@flipscope.local', crypt('flipscope-dev', gen_salt('bf')), now(), now(), now(), '', '', '', '');
+
 insert into organizations (id, name)
 values ('22222222-2222-2222-2222-222222222222', 'Hanger Investments');
 
-insert into org_members (org_id, user_id, role)
-values ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'owner');
+insert into org_members (org_id, user_id, role) values
+  ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'owner'),
+  ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111112', 'investor'),
+  ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111113', 'field_crew');
 
 insert into portfolios (id, org_id, name)
 values ('33333333-3333-3333-3333-333333333333', '22222222-2222-2222-2222-222222222222', 'Hanger Portfolio 1');
