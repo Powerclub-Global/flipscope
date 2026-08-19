@@ -1,3 +1,5 @@
+/* Login screen — matches the concept palette; the app shell CSS lives in
+   index.css, ported from the concept build. */
 .auth-wrap {
   min-height: 100vh;
   display: grid;
@@ -7,29 +9,13 @@
 
 .auth-card {
   width: min(420px, 100%);
-  background: linear-gradient(160deg, var(--panel2), var(--panel));
+  background: linear-gradient(160deg, #132319, #0d1811);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 28px;
 }
 
-.brand {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 18px;
-}
-
-.brand .mark {
-  width: 30px;
-  height: 30px;
-  border: 3px solid var(--green);
-  transform: rotate(45deg);
-  border-radius: 5px;
-}
-
-.brand b { font-size: 22px; }
-.brand b span { color: var(--green); }
+.auth-card .brand { padding: 0 0 12px; }
 
 .auth-card input {
   width: 100%;
@@ -41,196 +27,6 @@
   margin: 6px 0;
 }
 
-.btn {
-  border: 1px solid #36503e;
-  background: #132019;
-  color: var(--text);
-  border-radius: 9px;
-  padding: 10px 14px;
-  cursor: pointer;
-  font-weight: 700;
-}
+.autherr { color: var(--red); font-size: 13px; min-height: 18px; margin: 8px 0 0; }
 
-.btn.primary {
-  background: var(--green);
-  border-color: var(--green);
-  color: #07100b;
-  width: 100%;
-  margin-top: 10px;
-}
-
-.error { color: var(--red); font-size: 13px; min-height: 18px; margin: 8px 0 0; }
-.muted { color: var(--muted); }
-
-.shell {
-  max-width: 1100px;
-  margin: auto;
-  padding: 24px 18px 80px;
-}
-
-.topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.kpis {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
-  margin: 16px 0 24px;
-}
-
-.kpi {
-  background: linear-gradient(160deg, #0f1b14, #0b1510);
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  padding: 14px;
-}
-
-.kpi small {
-  color: var(--muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.kpi strong { display: block; font-size: 24px; margin-top: 5px; }
-.kpi strong.pos { color: var(--green); }
-.kpi strong.neg { color: var(--red); }
-
-.card {
-  background: linear-gradient(160deg, #0f1b14, #0b1510);
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  padding: 16px;
-  margin: 12px 0;
-}
-
-.card h3 { margin: 0 0 10px; }
-
-table { width: 100%; border-collapse: collapse; }
-
-th, td {
-  text-align: left;
-  padding: 9px;
-  border-bottom: 1px solid #223229;
-  font-size: 13px;
-}
-
-th {
-  color: #89a093;
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-}
-
-td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-
-.pill {
-  display: inline-block;
-  border: 1px solid #31493a;
-  background: #132119;
-  color: #b9c8be;
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.pill.green { border-color: #2c7138; background: #16341d; color: #8cf177; }
-
-.inline-form {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-  margin-top: 12px;
-}
-
-.inline-form input, .inline-form select {
-  background: #08110c;
-  border: 1px solid #33483a;
-  color: var(--text);
-  border-radius: 8px;
-  padding: 9px;
-}
-
-.proof-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.proof {
-  margin: 0;
-  border: 1px solid #2a4031;
-  border-radius: 10px;
-  overflow: hidden;
-  background: #0a130e;
-}
-
-.proof img {
-  width: 100%;
-  aspect-ratio: 4/3;
-  object-fit: cover;
-  display: block;
-}
-
-.proof-file {
-  aspect-ratio: 4/3;
-  display: grid;
-  place-items: center;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.proof figcaption { padding: 8px 10px; }
-.proof figcaption b { display: block; font-size: 12px; }
-.proof figcaption small { color: var(--muted); font-size: 10px; }
-
-.audit-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px solid #223229;
-  font-size: 13px;
-}
-
-.audit-row:last-child { border: 0; }
-
-.risk {
-  display: inline-block;
-  border-radius: 999px;
-  padding: 4px 12px;
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.risk.green { background: #16341d; color: #8cf177; border: 1px solid #2c7138; }
-.risk.amber { background: #2e2916; color: #ffd96b; border: 1px solid #6c5a21; }
-.risk.red   { background: #311818; color: #ff9b9b; border: 1px solid #6d3030; }
-
-.cash-row {
-  display: grid;
-  grid-template-columns: 90px 1fr 110px;
-  gap: 10px;
-  align-items: center;
-  padding: 7px 0;
-}
-
-.cash-month { font-size: 12px; color: var(--muted); }
-.cash-bars { display: grid; gap: 3px; }
-
-.cash-bar { height: 9px; border-radius: 99px; min-width: 2px; }
-.cash-bar.in  { background: var(--green2); }
-.cash-bar.out { background: #8a4a4a; }
-
-.cash-net { text-align: right; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.cash-net.pos { color: var(--green); }
-.cash-net.neg { color: var(--red); }
+.pill.red { border-color: #6d3030; background: #311818; color: #ff9b9b; }
