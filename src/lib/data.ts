@@ -98,3 +98,34 @@ export async function addLedgerEntry(
   })
   if (error) throw error
 }
+
+export interface CashflowMonth {
+  month: string
+  inflow_cents: number
+  outflow_cents: number
+  net_cents: number
+}
+
+export interface RiskRow {
+  project_id: string
+  project_name: string
+  address: string
+  status: string
+  budget_cents: number
+  actual_cents: number
+  budget_used_bps: number
+  days_to_target: number | null
+  risk_level: 'green' | 'amber' | 'red'
+}
+
+export async function portfolioCashflow(portfolioId: string): Promise<CashflowMonth[]> {
+  const { data, error } = await supabase.rpc('portfolio_cashflow', { p_portfolio_id: portfolioId })
+  if (error) throw error
+  return (data as CashflowMonth[]) ?? []
+}
+
+export async function portfolioRisk(portfolioId: string): Promise<RiskRow[]> {
+  const { data, error } = await supabase.rpc('portfolio_risk', { p_portfolio_id: portfolioId })
+  if (error) throw error
+  return (data as RiskRow[]) ?? []
+}

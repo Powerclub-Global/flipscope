@@ -5,9 +5,10 @@ import { portfolioFinancials, projectFinancials, formatCents, formatRoi } from '
 import type { Financials } from './lib/financials'
 import {
   myRole, auditTrail, proofFeed, proofUrl, uploadProof, addLedgerEntry,
+  portfolioCashflow, portfolioRisk,
   canEditFinancials, canSeeFinancials, canUploadProof,
 } from './lib/data'
-import type { OrgRole, AuditRow, ProofRow } from './lib/data'
+import type { OrgRole, AuditRow, ProofRow, CashflowMonth, RiskRow } from './lib/data'
 import './App.css'
 
 interface Portfolio { id: string; name: string }
@@ -156,6 +157,61 @@ function ProofSection({ orgId, projectId, role }: { orgId: string; projectId: st
   )
 }
 
+function RiskSection({ portfolioId }: { portfolioId: string }) {
+  const [rows, setRows] = useState<RiskRow[]>([])
+  useEffect(() => { portfolioRisk(portfolioId).then(setRows) }, [portfolioId])
+
+  return (
+    <div className="card">
+      <h3>Risk heatmap</h3>
+      <table>
+        <thead>
+          <tr><th>Project</th><th>Property</th><th>Status</th>
+          <th className="num">Budget</th><th className="num">Spent</th>
+          <th className="num">Budget used</th><th className="num">Days to target</th><th>Risk</th></tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.project_id}>
+              <td>{r.project_name}</td>
+              <td>{r.address}</td>
+              <td><span className="pill">{r.status}</span></td>
+              <td className="num">{formatCents(r.budget_cents)}</td>
+              <td className="num">{formatCents(r.actual_cents)}</td>
+              <td className="num">{(r.budget_used_bps / 100).toFixed(1)}%</td>
+              <td className="num">{r.days_to_target ?? '—'}</td>
+              <td><span className={`risk ${r.risk_level}`}>{r.risk_level}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function CashflowSection({ portfolioId }: { portfolioId: string }) {
+  const [rows, setRows] = useState<CashflowMonth[]>([])
+  useEffect(() => { portfolioCashflow(portfolioId).then(setRows) }, [portfolioId])
+  const peak = Math.max(1, ...rows.map((r) => Math.max(r.inflow_cents, r.outflow_cents)))
+
+  return (
+    <div className="card">
+      <h3>Cash flow</h3>
+      {rows.map((r) => (
+        <div className="cash-row" key={r.month}>
+          <span className="cash-month">{new Date(r.month + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+          <div className="cash-bars">
+            <div className="cash-bar in" style={{ width: `${(r.inflow_cents / peak) * 100}%` }} />
+            <div className="cash-bar out" style={{ width: `${(r.outflow_cents / peak) * 100}%` }} />
+          </div>
+          <span className={`cash-net ${r.net_cents >= 0 ? 'pos' : 'neg'}`}>{formatCents(r.net_cents)}</span>
+        </div>
+      ))}
+      {rows.length === 0 && <p className="muted">No cash movement yet.</p>}
+    </div>
+  )
+}
+
 function AuditSection() {
   const [rows, setRows] = useState<AuditRow[]>([])
   useEffect(() => { auditTrail().then(setRows) }, [])
@@ -290,6 +346,8 @@ function Dashboard({ session }: { session: Session }) {
         )}
       </div>
 
+      {showMoney && portfolios[0] && <RiskSection portfolioId={portfolios[0].id} />}
+      {showMoney && portfolios[0] && <CashflowSection portfolioId={portfolios[0].id} />}
       {firstProject && <ProofSection orgId={orgId} projectId={firstProject.id} role={role} />}
       {showMoney && <AuditSection />}
     </div>

@@ -202,3 +202,35 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 
 .audit-row:last-child { border: 0; }
+
+.risk {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.risk.green { background: #16341d; color: #8cf177; border: 1px solid #2c7138; }
+.risk.amber { background: #2e2916; color: #ffd96b; border: 1px solid #6c5a21; }
+.risk.red   { background: #311818; color: #ff9b9b; border: 1px solid #6d3030; }
+
+.cash-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 110px;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 0;
+}
+
+.cash-month { font-size: 12px; color: var(--muted); }
+.cash-bars { display: grid; gap: 3px; }
+
+.cash-bar { height: 9px; border-radius: 99px; min-width: 2px; }
+.cash-bar.in  { background: var(--green2); }
+.cash-bar.out { background: #8a4a4a; }
+
+.cash-net { text-align: right; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cash-net.pos { color: var(--green); }
+.cash-net.neg { color: var(--red); }

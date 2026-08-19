@@ -44,7 +44,21 @@ insert into projects (id, org_id, property_id, name, status, purchase_price_cent
 values ('55555555-5555-5555-5555-555555555555', '22222222-2222-2222-2222-222222222222',
         '44444444-4444-4444-4444-444444444444', 'First Flip', 'rehab', 18500000);
 
-insert into ledger_entries (org_id, project_id, entry_type, category, amount_cents) values
-  ('22222222-2222-2222-2222-222222222222', '55555555-5555-5555-5555-555555555555', 'budget', 'kitchen',  2200000),
-  ('22222222-2222-2222-2222-222222222222', '55555555-5555-5555-5555-555555555555', 'budget', 'roof',     1400000),
-  ('22222222-2222-2222-2222-222222222222', '55555555-5555-5555-5555-555555555555', 'actual', 'kitchen',  1150000);
+insert into properties (id, org_id, portfolio_id, address, city, state)
+values ('44444444-4444-4444-4444-444444444445', '22222222-2222-2222-2222-222222222222',
+        '33333333-3333-3333-3333-333333333333', '456 Gulfview Ct', 'Destin', 'FL');
+
+insert into projects (id, org_id, property_id, name, status, purchase_price_cents, started_at, target_finish)
+values ('55555555-5555-5555-5555-555555555556', '22222222-2222-2222-2222-222222222222',
+        '44444444-4444-4444-4444-444444444445', 'Gulfview Flip', 'rehab', 24000000, '2026-07-01', '2026-08-10');
+
+update projects set started_at = '2026-06-01', target_finish = '2026-11-15'
+where id = '55555555-5555-5555-5555-555555555555';
+
+insert into ledger_entries (org_id, project_id, entry_type, category, amount_cents, entry_date) values
+  ('22222222-2222-2222-2222-222222222222', '55555555-5555-5555-5555-555555555555', 'budget', 'kitchen',  2200000, '2026-06-01'),
+  ('22222222-2222-2222-2222-222222222222', '55555555-5555-5555-5555-555555555555', 'budget', 'roof',     1400000, '2026-06-01'),
+  ('22222222-2222-2222-2222-222222222222', '55555555-5555-5555-5555-555555555555', 'actual', 'kitchen',  1150000, '2026-07-14'),
+  -- Gulfview: over budget and past its target date → red on the heatmap
+  ('22222222-2222-2222-2222-222222222222', '55555555-5555-5555-5555-555555555556', 'budget', 'rehab',    3000000, '2026-07-01'),
+  ('22222222-2222-2222-2222-222222222222', '55555555-5555-5555-5555-555555555556', 'actual', 'rehab',    3450000, '2026-08-05');
