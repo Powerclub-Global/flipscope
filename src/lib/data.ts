@@ -192,3 +192,89 @@ export async function deleteScopeItem(id: string): Promise<void> {
   const { error } = await supabase.from('scope_items').delete().eq('id', id)
   if (error) throw error
 }
+
+export interface Vendor {
+  id: string
+  name: string
+  trade: string | null
+  phone: string | null
+  email: string | null
+  rating: number | null
+}
+
+export type BidStatus = 'quoted' | 'preferred' | 'awarded' | 'declined'
+
+export interface Bid {
+  id: string
+  trade: string
+  amount_cents: number
+  duration_days: number | null
+  status: BidStatus
+  notes: string | null
+  vendors: { name: string; rating: number | null } | null
+}
+
+export const canSeeBids = canSeeFinancials
+export const canManageBids = canEditFinancials
+
+export async function vendorsList(): Promise<Vendor[]> {
+  const { data, error } = await supabase
+    .from('vendors')
+    .select('id, name, trade, phone, email, rating')
+    .order('name')
+  if (error) throw error
+  return (data as Vendor[]) ?? []
+}
+
+export async function addVendor(orgId: string, v: { name: string; trade: string; phone: string; email: string }): Promise<Vendor> {
+  const { data, error } = await supabase
+    .from('vendors')
+    .insert({ org_id: orgId, name: v.name, trade: v.trade || null, phone: v.phone || null, email: v.email || null })
+    .select('id, name, trade, phone, email, rating')
+    .single()
+  if (error) throw error
+  return data as Vendor
+}
+
+export async function bidsList(projectId: string): Promise<Bid[]> {
+  const { data, error } = await supabase
+    .from('bids')
+    .select('id, trade, amount_cents, duration_days, status, notes, vendors(name, rating)')
+    .eq('project_id', projectId)
+    .order('trade')
+    .order('amount_cents')
+  if (error) throw error
+  return (data as unknown as Bid[]) ?? []
+}
+
+export async function addBid(
+  orgId: string,
+  projectId: string,
+  b: { vendorId: string; trade: string; amountCents: number; durationDays: number | null; notes: string },
+): Promise<void> {
+  const { error } = await supabase.from('bids').insert({
+    org_id: orgId,
+    project_id: projectId,
+    vendor_id: b.vendorId,
+    trade: b.trade,
+    amount_cents: b.amountCents,
+    duration_days: b.durationDays,
+    notes: b.notes || null,
+  })
+  if (error) throw error
+}
+
+export async function setBidStatus(id: string, status: Exclude<BidStatus, 'awarded'>): Promise<void> {
+  const { error } = await supabase.from('bids').update({ status }).eq('id', id)
+  if (error) throw error
+}
+
+export async function awardBid(id: string): Promise<void> {
+  const { error } = await supabase.rpc('award_bid', { p_bid_id: id })
+  if (error) throw error
+}
+
+export async function deleteBid(id: string): Promise<void> {
+  const { error } = await supabase.from('bids').delete().eq('id', id)
+  if (error) throw error
+}

@@ -9,9 +9,10 @@ import {
   auditTrail, proofFeed, proofUrl, uploadProof, addLedgerEntry,
   portfolioCashflow, portfolioRisk,
   scopeItems, scopeEstimateTotal, addScopeItem, setScopeItemStatus, deleteScopeItem,
-  canEditFinancials, canUploadProof, canEditScope,
+  vendorsList, addVendor, bidsList, addBid, setBidStatus, awardBid, deleteBid,
+  canEditFinancials, canUploadProof, canEditScope, canSeeBids, canManageBids,
 } from '../lib/data'
-import type { OrgRole, AuditRow, ProofRow, CashflowMonth, RiskRow, ScopeItem, ScopeItemStatus } from '../lib/data'
+import type { OrgRole, AuditRow, ProofRow, CashflowMonth, RiskRow, ScopeItem, ScopeItemStatus, Vendor, Bid } from '../lib/data'
 
 export interface Ctx {
   orgId: string
@@ -541,6 +542,187 @@ export function LiveScopePage({ ctx }: { ctx: Ctx }) {
         ))}
         {items.length === 0 && <div className="emptyState"><b>No scope yet</b>Add the first line item above.</div>}
       </div>
+    </section>
+  )
+}
+
+function AddVendorForm({ ctx, onAdded }: { ctx: Ctx; onAdded: (v: Vendor) => void }) {
+  const [name, setName] = useState('')
+  const [trade, setTrade] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true); setError('')
+    try {
+      const v = await addVendor(ctx.orgId, { name: name.trim(), trade: trade.trim(), phone: phone.trim(), email: email.trim() })
+      setName(''); setTrade(''); setPhone(''); setEmail('')
+      onAdded(v)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add vendor')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <input className="search" style={{ maxWidth: 200 }} placeholder="Vendor name" value={name} onChange={(e) => setName(e.target.value)} required />
+      <input className="search" style={{ maxWidth: 130 }} placeholder="Trade" value={trade} onChange={(e) => setTrade(e.target.value)} />
+      <input className="search" style={{ maxWidth: 140 }} placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+      <input className="search" style={{ maxWidth: 200 }} placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <button className="btn" disabled={busy}>{busy ? 'Adding…' : 'Add vendor'}</button>
+      {error && <span style={{ color: 'var(--red)', fontSize: 12 }}>{error}</span>}
+    </form>
+  )
+}
+
+function AddBidForm({ ctx, vendors, onAdded }: { ctx: Ctx; vendors: Vendor[]; onAdded: () => void }) {
+  const [vendorId, setVendorId] = useState('')
+  const [trade, setTrade] = useState('')
+  const [amount, setAmount] = useState('')
+  const [days, setDays] = useState('')
+  const [notes, setNotes] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  function pickVendor(id: string) {
+    setVendorId(id)
+    const v = vendors.find((x) => x.id === id)
+    if (v?.trade && !trade) setTrade(v.trade)
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    const cents = Math.round(Number(amount) * 100)
+    if (!vendorId) { setError('Pick a vendor'); return }
+    if (!Number.isFinite(cents) || cents <= 0) { setError('Enter a bid amount'); return }
+    setBusy(true)
+    try {
+      await addBid(ctx.orgId, ctx.projectId, {
+        vendorId,
+        trade: trade.trim() || 'General',
+        amountCents: cents,
+        durationDays: days ? Number(days) : null,
+        notes: notes.trim(),
+      })
+      setAmount(''); setDays(''); setNotes('')
+      onAdded()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add bid')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <select className="search" style={{ maxWidth: 220 }} value={vendorId} onChange={(e) => pickVendor(e.target.value)}>
+        <option value="">Vendor…</option>
+        {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}{v.trade ? ` · ${v.trade}` : ''}</option>)}
+      </select>
+      <input className="search" style={{ maxWidth: 130 }} placeholder="Trade" value={trade} onChange={(e) => setTrade(e.target.value)} />
+      <input className="search" style={{ maxWidth: 120 }} placeholder="Bid $" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+      <input className="search" style={{ maxWidth: 80 }} placeholder="Days" inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} />
+      <input className="search" style={{ maxWidth: 220 }} placeholder="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+      <button className="btn p" disabled={busy}>{busy ? 'Adding…' : 'Add bid'}</button>
+      {error && <span style={{ color: 'var(--red)', fontSize: 12 }}>{error}</span>}
+    </form>
+  )
+}
+
+export function LiveBidsPage({ ctx }: { ctx: Ctx }) {
+  const [bids, setBids] = useState<Bid[]>([])
+  const [vendors, setVendors] = useState<Vendor[]>([])
+  const [error, setError] = useState('')
+  const canManage = canManageBids(ctx.role)
+
+  const reload = useCallback(async () => {
+    if (!ctx.projectId) return
+    const [b, v] = await Promise.all([bidsList(ctx.projectId), vendorsList()])
+    setBids(b)
+    setVendors(v)
+  }, [ctx.projectId])
+  useEffect(() => { reload() }, [reload])
+
+  if (!canSeeBids(ctx.role)) {
+    return (
+      <section className="page on">
+        <div className="sectiontitle"><h2>Bid Room</h2></div>
+        <div className="emptyState"><b>Bids are visible to owners, PMs and investors only.</b></div>
+      </section>
+    )
+  }
+  if (!ctx.hasProject) {
+    return (
+      <section className="page on">
+        <div className="sectiontitle"><h2>Bid Room</h2></div>
+        <NoPropertyCard ctx={ctx} />
+      </section>
+    )
+  }
+
+  async function run(fn: () => Promise<void>) {
+    setError('')
+    try { await fn(); await reload(); ctx.reload() }
+    catch (err) { setError(err instanceof Error ? err.message : 'Action failed') }
+  }
+
+  const trades = [...new Set(bids.map((b) => b.trade))]
+
+  return (
+    <section className="page on">
+      <div className="sectiontitle"><div><h2>Bid Room — {ctx.projectName}</h2>
+        <div className="subtle">Awarding a bid declines the competing bids for that trade and commits the amount in the ledger.</div></div>
+        <span className="pill green">LIVE</span></div>
+
+      {canManage && (
+        <div className="card">
+          <h3>Add bid</h3>
+          <AddBidForm ctx={ctx} vendors={vendors} onAdded={reload} />
+          <details style={{ marginTop: 10 }}>
+            <summary className="subtle" style={{ cursor: 'pointer', fontSize: 12 }}>New vendor</summary>
+            <div style={{ marginTop: 8 }}><AddVendorForm ctx={ctx} onAdded={() => reload()} /></div>
+          </details>
+        </div>
+      )}
+      {error && <p style={{ color: 'var(--red)', fontSize: 12 }}>{error}</p>}
+
+      {trades.map((trade) => (
+        <div className="card tablewrap" key={trade}>
+          <h3>{trade}</h3>
+          <table className="table">
+            <thead><tr><th>Vendor</th><th>Bid</th><th>Days</th><th>Rating</th><th>Status</th>{canManage && <th />}</tr></thead>
+            <tbody>
+              {bids.filter((b) => b.trade === trade).map((b) => (
+                <tr key={b.id}>
+                  <td>{b.vendors?.name ?? '—'}{b.notes && <div className="subtle" style={{ fontSize: 10 }}>{b.notes}</div>}</td>
+                  <td>{formatCents(b.amount_cents)}</td>
+                  <td>{b.duration_days ?? '—'}</td>
+                  <td>{b.vendors?.rating != null ? `${b.vendors.rating}★` : '—'}</td>
+                  <td><span className={`pill ${b.status === 'awarded' ? 'green' : b.status === 'preferred' ? 'amber' : b.status === 'declined' ? 'red' : ''}`}>{b.status}</span></td>
+                  {canManage && (
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      {b.status !== 'awarded' && b.status !== 'declined' && (
+                        <>
+                          <button className="btn p" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => run(() => awardBid(b.id))}>Award</button>{' '}
+                          {b.status !== 'preferred' && <button className="btn ghost" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => run(() => setBidStatus(b.id, 'preferred'))}>Prefer</button>}{' '}
+                        </>
+                      )}
+                      {b.status !== 'awarded' && <button className="btn ghost" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => run(() => deleteBid(b.id))}>Remove</button>}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+      {bids.length === 0 && <div className="emptyState"><b>No bids yet</b>{canManage ? 'Add a vendor, then log their bid above.' : 'Bids will appear here once the PM logs them.'}</div>}
     </section>
   )
 }
