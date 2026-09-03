@@ -63,14 +63,7 @@ function Login() {
   )
 }
 
-interface OnboardingInfo {
-  orgId: string
-  orgName: string
-  portfolioId: string
-  role: OrgRole
-}
-
-function AddFirstProperty({ info, onDone }: { info: OnboardingInfo; onDone: () => void }) {
+function AddPropertyModal({ ctx, onClose }: { ctx: Ctx; onClose: () => void }) {
   const [address, setAddress] = useState('')
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
@@ -85,14 +78,14 @@ function AddFirstProperty({ info, onDone }: { info: OnboardingInfo; onDone: () =
     try {
       const { data: property, error: propErr } = await supabase
         .from('properties')
-        .insert({ org_id: info.orgId, portfolio_id: info.portfolioId, address, city, state })
+        .insert({ org_id: ctx.orgId, portfolio_id: ctx.portfolioId, address, city, state })
         .select('id')
         .single()
       if (propErr) throw propErr
 
       const priceCents = purchasePrice ? Math.round(parseFloat(purchasePrice) * 100) : null
       const { error: projErr } = await supabase.from('projects').insert({
-        org_id: info.orgId,
+        org_id: ctx.orgId,
         property_id: property.id,
         name: projectName || address,
         status: 'rehab',
@@ -100,7 +93,8 @@ function AddFirstProperty({ info, onDone }: { info: OnboardingInfo; onDone: () =
       })
       if (projErr) throw projErr
 
-      onDone()
+      onClose()
+      ctx.reload()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create property')
     } finally {
@@ -109,20 +103,27 @@ function AddFirstProperty({ info, onDone }: { info: OnboardingInfo; onDone: () =
   }
 
   return (
-    <div className="auth-wrap">
-      <form className="auth-card" style={{ width: 'min(520px, 100%)' }} onSubmit={submit}>
-        <div className="brand"><div className="mark" /><b>Flip<span>Scope</span></b></div>
-        <p className="subtle">{info.orgName} has no properties yet. Add the first one to get started.</p>
-        <input placeholder="Address" value={address} onChange={(e) => setAddress(e.target.value)} required />
-        <div className="formgrid" style={{ margin: '6px 0' }}>
-          <input placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} />
-          <input placeholder="State" value={state} onChange={(e) => setState(e.target.value)} />
-        </div>
-        <input placeholder="Project name (optional)" value={projectName} onChange={(e) => setProjectName(e.target.value)} />
-        <input placeholder="Purchase price (USD, optional)" inputMode="decimal" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} />
-        <p className="autherr">{error}</p>
-        <button className="btn p" style={{ width: '100%' }} disabled={busy}>{busy ? 'Adding…' : 'Add property'}</button>
-      </form>
+    <div className="modal on">
+      <div className="modalbox">
+        <div className="sectiontitle"><h2>Add property</h2></div>
+        <form onSubmit={submit}>
+          <div className="field"><label>Address</label>
+            <input value={address} onChange={(e) => setAddress(e.target.value)} required /></div>
+          <div className="formgrid" style={{ margin: '10px 0' }}>
+            <div className="field"><label>City</label><input value={city} onChange={(e) => setCity(e.target.value)} /></div>
+            <div className="field"><label>State</label><input value={state} onChange={(e) => setState(e.target.value)} /></div>
+          </div>
+          <div className="field"><label>Project name (optional)</label>
+            <input value={projectName} onChange={(e) => setProjectName(e.target.value)} /></div>
+          <div className="field" style={{ margin: '10px 0' }}><label>Purchase price (USD, optional)</label>
+            <input inputMode="decimal" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} /></div>
+          {error && <p className="autherr">{error}</p>}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
+            <button className="btn p" disabled={busy}>{busy ? 'Adding…' : 'Add property'}</button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
@@ -131,7 +132,7 @@ function Shell({ session }: { session: Session }) {
   const [page, setPage] = useState('home')
   const [ctx, setCtx] = useState<Ctx | null>(null)
   const [role, setRole] = useState<OrgRole | null>(null)
-  const [onboarding, setOnboarding] = useState<OnboardingInfo | null>(null)
+  const [showAddProperty, setShowAddProperty] = useState(false)
 
   const load = useCallback(async () => {
     const me = await myRole()
@@ -145,45 +146,38 @@ function Shell({ session }: { session: Session }) {
       .select('id, name, arv_cents, properties(address)')
       .order('created_at')
     const project = prjs?.[0] as unknown as { id: string; name: string; arv_cents: number | null; properties: { address: string } | null } | undefined
-    if (!project || !pfs?.[0]) {
-      setOnboarding({
-        orgId: me.orgId,
-        orgName: orgs?.[0]?.name ?? '',
-        portfolioId: pfs?.[0]?.id ?? '',
-        role: me.role,
-      })
-      return
-    }
-    setOnboarding(null)
+    const orgId = me.orgId
+    const orgName = orgs?.[0]?.name ?? ''
+    const portfolioId = pfs?.[0]?.id ?? ''
+    const hasProject = !!project
 
     let fin: Financials | null = null
     let pfFin: Financials | null = null
-    if (canSeeFinancials(me.role)) {
+    if (project && canSeeFinancials(me.role)) {
       fin = await projectFinancials(project.id).catch(() => null)
-      pfFin = await portfolioFinancials(pfs[0].id).catch(() => null)
+      pfFin = portfolioId ? await portfolioFinancials(portfolioId).catch(() => null) : null
     }
 
     setCtx({
-      orgId: me.orgId,
-      orgName: orgs?.[0]?.name ?? '',
+      orgId,
+      orgName,
       role: me.role,
-      portfolioId: pfs[0].id,
-      projectId: project.id,
-      projectName: project.name,
-      address: project.properties?.address ?? '',
-      arvCents: project.arv_cents,
+      portfolioId,
+      hasProject,
+      projectId: project?.id ?? '',
+      projectName: project?.name ?? '',
+      address: project?.properties?.address ?? '',
+      arvCents: project?.arv_cents ?? null,
       fin,
       portfolioFin: pfFin,
       reload: () => { load() },
       go: setPage,
+      addProperty: () => setShowAddProperty(true),
     })
   }, [])
 
   useEffect(() => { load() }, [load])
 
-  if (onboarding && onboarding.portfolioId) {
-    return <AddFirstProperty info={onboarding} onDone={load} />
-  }
   if (!ctx || !role) return null
   const showMoney = canSeeFinancials(role)
   const f = ctx.fin
@@ -215,9 +209,9 @@ function Shell({ session }: { session: Session }) {
       <aside className="side">
         <div className="brand"><div className="mark" /><b>Flip<span>Scope</span></b></div>
         <div className="project">
-          <strong>{ctx.address || ctx.projectName}</strong>
+          <strong>{ctx.address || ctx.projectName || 'No property yet'}</strong>
           <small>{ctx.orgName}</small>
-          <span className="phase">ACTIVE REHAB</span>
+          {ctx.hasProject && <span className="phase">ACTIVE REHAB</span>}
         </div>
         <div className="nav">
           {NAV.map(([id, ico, label]) => (
@@ -253,6 +247,7 @@ function Shell({ session }: { session: Session }) {
         </div>
         <div className="content">{pages[page]}</div>
       </main>
+      {showAddProperty && <AddPropertyModal ctx={ctx} onClose={() => setShowAddProperty(false)} />}
     </div>
   )
 }

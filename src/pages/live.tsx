@@ -17,6 +17,7 @@ export interface Ctx {
   orgName: string
   role: OrgRole
   portfolioId: string
+  hasProject: boolean
   projectId: string
   projectName: string
   address: string
@@ -25,6 +26,19 @@ export interface Ctx {
   portfolioFin: Financials | null
   reload: () => void
   go: (page: string) => void
+  addProperty: () => void
+}
+
+function NoPropertyCard({ ctx }: { ctx: Ctx }) {
+  return (
+    <div className="emptyState">
+      <b>No property yet</b>
+      Add your first property to start tracking scope, cost and schedule.
+      <div style={{ marginTop: 10 }}>
+        <button className="btn p" onClick={ctx.addProperty}>+ Add property</button>
+      </div>
+    </div>
+  )
 }
 
 const kpi = (label: string, val: string, delta?: string, color?: string) => (
@@ -35,6 +49,7 @@ export function HomePage({ ctx }: { ctx: Ctx }) {
   const [risk, setRisk] = useState<RiskRow[]>([])
   const [audit, setAudit] = useState<AuditRow[]>([])
   useEffect(() => {
+    if (!ctx.portfolioId) return
     portfolioRisk(ctx.portfolioId).then(setRisk).catch(() => {})
     auditTrail(4).then(setAudit).catch(() => {})
   }, [ctx.portfolioId])
@@ -55,6 +70,8 @@ export function HomePage({ ctx }: { ctx: Ctx }) {
         </div>
       </div>
 
+      {!ctx.hasProject && <NoPropertyCard ctx={ctx} />}
+
       {f && (
         <div className="grid">
           {kpi('Portfolio budget', formatCents(f.budget_cents))}
@@ -64,41 +81,55 @@ export function HomePage({ ctx }: { ctx: Ctx }) {
         </div>
       )}
 
-      <div className="grid2">
-        <div className="card">
-          <div className="sectiontitle"><h2>Portfolio Health</h2>
-            <span className={`pill ${red.length ? 'red' : 'green'}`}>{red.length ? `${red.length} at risk` : 'On Track'}</span></div>
-          <div className="timeline">
-            {risk.map((r) => (
-              <div className="tl" key={r.project_id}>
-                <b>{r.project_name}</b>
-                <small> {r.address} · {(r.budget_used_bps / 100).toFixed(0)}% of budget{r.days_to_target != null ? ` · ${r.days_to_target}d to target` : ''} · {r.risk_level.toUpperCase()}</small>
-              </div>
-            ))}
+      {ctx.hasProject && (
+        <div className="grid2">
+          <div className="card">
+            <div className="sectiontitle"><h2>Portfolio Health</h2>
+              <span className={`pill ${red.length ? 'red' : 'green'}`}>{red.length ? `${red.length} at risk` : 'On Track'}</span></div>
+            <div className="timeline">
+              {risk.map((r) => (
+                <div className="tl" key={r.project_id}>
+                  <b>{r.project_name}</b>
+                  <small> {r.address} · {(r.budget_used_bps / 100).toFixed(0)}% of budget{r.days_to_target != null ? ` · ${r.days_to_target}d to target` : ''} · {r.risk_level.toUpperCase()}</small>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="card">
+            <div className="sectiontitle"><h2>Live Project Feed</h2><button className="btn ghost" onClick={() => ctx.go('feed')}>View all</button></div>
+            <div className="feed">
+              {audit.map((a) => (
+                <div className="event" key={a.id}>
+                  <div className="dot">{a.table_name === 'ledger_entries' ? '$' : '✓'}</div>
+                  <div><b>{a.action} {a.table_name.replace('_', ' ')}</b><br /><small>{new Date(a.created_at).toLocaleString()}</small></div>
+                </div>
+              ))}
+              {audit.length === 0 && <p className="subtle">No activity yet.</p>}
+            </div>
           </div>
         </div>
-        <div className="card">
-          <div className="sectiontitle"><h2>Live Project Feed</h2><button className="btn ghost" onClick={() => ctx.go('feed')}>View all</button></div>
-          <div className="feed">
-            {audit.map((a) => (
-              <div className="event" key={a.id}>
-                <div className="dot">{a.table_name === 'ledger_entries' ? '$' : '✓'}</div>
-                <div><b>{a.action} {a.table_name.replace('_', ' ')}</b><br /><small>{new Date(a.created_at).toLocaleString()}</small></div>
-              </div>
-            ))}
-            {audit.length === 0 && <p className="subtle">No activity yet.</p>}
-          </div>
-        </div>
-      </div>
+      )}
     </section>
   )
 }
 
 export function FinancialsPage({ ctx }: { ctx: Ctx }) {
   const [cash, setCash] = useState<CashflowMonth[]>([])
-  useEffect(() => { portfolioCashflow(ctx.portfolioId).then(setCash).catch(() => {}) }, [ctx.portfolioId])
+  useEffect(() => {
+    if (!ctx.portfolioId) return
+    portfolioCashflow(ctx.portfolioId).then(setCash).catch(() => {})
+  }, [ctx.portfolioId])
   const f = ctx.fin
   const peak = Math.max(1, ...cash.map((r) => Math.max(r.inflow_cents, r.outflow_cents)))
+
+  if (!ctx.hasProject) {
+    return (
+      <section className="page on">
+        <div className="sectiontitle"><h2>Financials</h2></div>
+        <NoPropertyCard ctx={ctx} />
+      </section>
+    )
+  }
 
   return (
     <section className="page on">
@@ -172,6 +203,7 @@ export function FieldPage({ ctx }: { ctx: Ctx }) {
   const [error, setError] = useState('')
 
   const reload = useCallback(async () => {
+    if (!ctx.projectId) return
     const rows = await proofFeed(ctx.projectId)
     setItems(rows)
     const u: Record<string, string> = {}
@@ -182,6 +214,15 @@ export function FieldPage({ ctx }: { ctx: Ctx }) {
     setUrls(u)
   }, [ctx.projectId])
   useEffect(() => { reload() }, [reload])
+
+  if (!ctx.hasProject) {
+    return (
+      <section className="page on">
+        <div className="sectiontitle"><h2>Field & Verification</h2></div>
+        <NoPropertyCard ctx={ctx} />
+      </section>
+    )
+  }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -260,6 +301,14 @@ export function FeedPage() {
 
 export function PortalPage({ ctx }: { ctx: Ctx }) {
   const f = ctx.portfolioFin
+  if (!ctx.hasProject) {
+    return (
+      <section className="page on">
+        <div className="sectiontitle"><h2>Client / Investor Portal</h2></div>
+        <NoPropertyCard ctx={ctx} />
+      </section>
+    )
+  }
   return (
     <section className="page on">
       <div className="sectiontitle"><div><h2>Client / Investor Portal</h2>
@@ -288,7 +337,18 @@ export function PortalPage({ ctx }: { ctx: Ctx }) {
 
 export function RiskPage({ ctx }: { ctx: Ctx }) {
   const [rows, setRows] = useState<RiskRow[]>([])
-  useEffect(() => { portfolioRisk(ctx.portfolioId).then(setRows).catch(() => {}) }, [ctx.portfolioId])
+  useEffect(() => {
+    if (!ctx.portfolioId) return
+    portfolioRisk(ctx.portfolioId).then(setRows).catch(() => {})
+  }, [ctx.portfolioId])
+  if (!ctx.hasProject) {
+    return (
+      <section className="page on">
+        <div className="sectiontitle"><h2>Risk Radar</h2></div>
+        <NoPropertyCard ctx={ctx} />
+      </section>
+    )
+  }
   return (
     <section className="page on">
       <div className="sectiontitle"><div><h2>Risk Radar</h2>
