@@ -8,9 +8,10 @@ import type { Financials } from '../lib/financials'
 import {
   auditTrail, proofFeed, proofUrl, uploadProof, addLedgerEntry,
   portfolioCashflow, portfolioRisk,
-  canEditFinancials, canUploadProof,
+  scopeItems, scopeEstimateTotal, addScopeItem, setScopeItemStatus, deleteScopeItem,
+  canEditFinancials, canUploadProof, canEditScope,
 } from '../lib/data'
-import type { OrgRole, AuditRow, ProofRow, CashflowMonth, RiskRow } from '../lib/data'
+import type { OrgRole, AuditRow, ProofRow, CashflowMonth, RiskRow, ScopeItem, ScopeItemStatus } from '../lib/data'
 
 export interface Ctx {
   orgId: string
@@ -399,6 +400,146 @@ export function TeamPage({ ctx }: { ctx: Ctx }) {
             ))}
           </tbody>
         </table>
+      </div>
+    </section>
+  )
+}
+
+function AddScopeItemForm({ ctx, onAdded }: { ctx: Ctx; onAdded: () => void }) {
+  const [room, setRoom] = useState('')
+  const [trade, setTrade] = useState('')
+  const [task, setTask] = useState('')
+  const [qty, setQty] = useState('1')
+  const [unit, setUnit] = useState('LS')
+  const [labor, setLabor] = useState('')
+  const [material, setMaterial] = useState('')
+  const [proofRequired, setProofRequired] = useState(true)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true); setError('')
+    try {
+      await addScopeItem(ctx.orgId, ctx.projectId, {
+        room: room.trim() || 'General',
+        trade: trade.trim() || 'General',
+        task: task.trim(),
+        qty: Number(qty) || 1,
+        unit: unit.trim() || 'LS',
+        laborCents: Math.round((Number(labor) || 0) * 100),
+        materialCents: Math.round((Number(material) || 0) * 100),
+        proofRequired,
+      })
+      setRoom(''); setTrade(''); setTask(''); setQty('1'); setUnit('LS'); setLabor(''); setMaterial('')
+      onAdded()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add scope item')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="card">
+      <h3>Add scope item</h3>
+      <form onSubmit={submit} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input className="search" style={{ maxWidth: 130 }} placeholder="Room" value={room} onChange={(e) => setRoom(e.target.value)} />
+        <input className="search" style={{ maxWidth: 130 }} placeholder="Trade" value={trade} onChange={(e) => setTrade(e.target.value)} />
+        <input className="search" style={{ maxWidth: 220 }} placeholder="Task" value={task} onChange={(e) => setTask(e.target.value)} required />
+        <input className="search" style={{ maxWidth: 70 }} placeholder="Qty" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} />
+        <input className="search" style={{ maxWidth: 80 }} placeholder="Unit" value={unit} onChange={(e) => setUnit(e.target.value)} />
+        <input className="search" style={{ maxWidth: 110 }} placeholder="Labor $/unit" inputMode="decimal" value={labor} onChange={(e) => setLabor(e.target.value)} />
+        <input className="search" style={{ maxWidth: 110 }} placeholder="Material $/unit" inputMode="decimal" value={material} onChange={(e) => setMaterial(e.target.value)} />
+        <label style={{ display: 'flex', gap: 5, alignItems: 'center', fontSize: 12, color: 'var(--muted)' }}>
+          <input type="checkbox" checked={proofRequired} onChange={(e) => setProofRequired(e.target.checked)} />Proof required
+        </label>
+        <button className="btn p" disabled={busy}>{busy ? 'Adding…' : 'Add'}</button>
+        {error && <span style={{ color: 'var(--red)', fontSize: 12 }}>{error}</span>}
+      </form>
+    </div>
+  )
+}
+
+const SCOPE_STATUSES: ScopeItemStatus[] = ['planned', 'ready', 'scheduled', 'in_progress', 'done']
+
+export function LiveScopePage({ ctx }: { ctx: Ctx }) {
+  const [items, setItems] = useState<ScopeItem[]>([])
+  const [total, setTotal] = useState(0)
+  const showMoney = canEditFinancials(ctx.role) || ctx.role === 'investor'
+  const canEdit = canEditScope(ctx.role)
+
+  const reload = useCallback(async () => {
+    const [rows, sum] = await Promise.all([scopeItems(ctx.projectId), scopeEstimateTotal(ctx.projectId)])
+    setItems(rows)
+    setTotal(sum)
+  }, [ctx.projectId])
+  useEffect(() => { reload() }, [reload])
+
+  if (!ctx.hasProject) {
+    return (
+      <section className="page on">
+        <div className="sectiontitle"><h2>Scope & Estimate</h2></div>
+        <NoPropertyCard ctx={ctx} />
+      </section>
+    )
+  }
+
+  async function toggleDone(item: ScopeItem) {
+    await setScopeItemStatus(item.id, item.status === 'done' ? 'planned' : 'done')
+    reload()
+  }
+
+  async function remove(id: string) {
+    await deleteScopeItem(id)
+    reload()
+  }
+
+  return (
+    <section className="page on">
+      <div className="sectiontitle"><div><h2>Scope & Estimate — {ctx.projectName}</h2>
+        <div className="subtle">Real line items, priced per unit. AI walkthrough capture (Phase 3) will insert here too.</div></div>
+        <span className="pill green">LIVE</span></div>
+      <div className="grid" style={{ gridTemplateColumns: showMoney ? 'repeat(2,minmax(0,1fr))' : '1fr' }}>
+        <div className="kpi"><small>Line items</small><strong>{items.length}</strong></div>
+        {showMoney && <div className="kpi"><small>Estimate total</small><strong>{formatCents(total)}</strong></div>}
+      </div>
+
+      {canEdit && <AddScopeItemForm ctx={ctx} onAdded={reload} />}
+
+      <div className="card">
+        {items.map((s) => (
+          <div className="scopeitem" key={s.id}>
+            <div className={`check ${s.status === 'done' ? 'done' : ''}`} onClick={() => canEdit && toggleDone(s)} style={{ cursor: canEdit ? 'pointer' : 'default' }}>
+              {s.status === 'done' ? '✓' : ''}
+            </div>
+            <div>
+              <strong>{s.task}</strong>
+              <div className="scopemeta">
+                <span className="pill">{s.room}</span><span className="pill">{s.trade}</span>
+                <span className="pill">{s.qty} {s.unit}</span>
+                {s.proof_required && <span className="pill green">proof required</span>}
+                {canEdit ? (
+                  <select
+                    className="search"
+                    style={{ maxWidth: 130, padding: '3px 6px', fontSize: 10 }}
+                    value={s.status}
+                    onChange={(e) => setScopeItemStatus(s.id, e.target.value as ScopeItemStatus).then(reload)}
+                  >
+                    {SCOPE_STATUSES.map((st) => <option key={st} value={st}>{st.replace('_', ' ')}</option>)}
+                  </select>
+                ) : (
+                  <span className="pill">{s.status.replace('_', ' ')}</span>
+                )}
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              {showMoney && <b>{formatCents(Math.round(s.qty * (s.labor_cents + s.material_cents)))}</b>}
+              {canEdit && <div><button className="btn ghost" style={{ padding: '2px 8px', fontSize: 11, marginTop: 4 }} onClick={() => remove(s.id)}>Remove</button></div>}
+            </div>
+          </div>
+        ))}
+        {items.length === 0 && <div className="emptyState"><b>No scope yet</b>Add the first line item above.</div>}
       </div>
     </section>
   )

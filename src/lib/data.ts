@@ -129,3 +129,66 @@ export async function portfolioRisk(portfolioId: string): Promise<RiskRow[]> {
   if (error) throw error
   return (data as RiskRow[]) ?? []
 }
+
+export type ScopeItemStatus = 'planned' | 'ready' | 'scheduled' | 'in_progress' | 'done'
+
+export interface ScopeItem {
+  id: string
+  room: string
+  trade: string
+  task: string
+  qty: number
+  unit: string
+  labor_cents: number
+  material_cents: number
+  status: ScopeItemStatus
+  proof_required: boolean
+}
+
+export const canEditScope = (r: OrgRole) => r === 'owner' || r === 'pm'
+
+export async function scopeItems(projectId: string): Promise<ScopeItem[]> {
+  const { data, error } = await supabase
+    .from('scope_items')
+    .select('id, room, trade, task, qty, unit, labor_cents, material_cents, status, proof_required')
+    .eq('project_id', projectId)
+    .order('created_at')
+  if (error) throw error
+  return (data as ScopeItem[]) ?? []
+}
+
+export async function scopeEstimateTotal(projectId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('scope_estimate_total', { p_project_id: projectId })
+  if (error) throw error
+  return (data as number) ?? 0
+}
+
+export async function addScopeItem(
+  orgId: string,
+  projectId: string,
+  item: { room: string; trade: string; task: string; qty: number; unit: string; laborCents: number; materialCents: number; proofRequired: boolean },
+): Promise<void> {
+  const { error } = await supabase.from('scope_items').insert({
+    org_id: orgId,
+    project_id: projectId,
+    room: item.room,
+    trade: item.trade,
+    task: item.task,
+    qty: item.qty,
+    unit: item.unit,
+    labor_cents: item.laborCents,
+    material_cents: item.materialCents,
+    proof_required: item.proofRequired,
+  })
+  if (error) throw error
+}
+
+export async function setScopeItemStatus(id: string, status: ScopeItemStatus): Promise<void> {
+  const { error } = await supabase.from('scope_items').update({ status }).eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteScopeItem(id: string): Promise<void> {
+  const { error } = await supabase.from('scope_items').delete().eq('id', id)
+  if (error) throw error
+}
