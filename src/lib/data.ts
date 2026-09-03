@@ -278,3 +278,81 @@ export async function deleteBid(id: string): Promise<void> {
   const { error } = await supabase.from('bids').delete().eq('id', id)
   if (error) throw error
 }
+
+export type MaterialStatus = 'selected' | 'ordered' | 'delivered' | 'installed' | 'returned'
+export type Retailer = 'home_depot' | 'lowes' | 'amazon' | 'local' | 'other'
+
+export interface Material {
+  id: string
+  name: string
+  retailer: Retailer | null
+  sku: string | null
+  product_url: string | null
+  qty: number
+  unit: string
+  unit_price_cents: number
+  status: MaterialStatus
+  ordered_at: string | null
+  delivered_at: string | null
+  notes: string | null
+  vendors: { name: string } | null
+  scope_items: { task: string } | null
+}
+
+export const canManageMaterials = canEditFinancials
+export const canReceiveMaterials = (r: OrgRole) => r === 'owner' || r === 'pm' || r === 'field_crew'
+
+export async function materialsList(projectId: string): Promise<Material[]> {
+  const { data, error } = await supabase
+    .from('materials')
+    .select('id, name, retailer, sku, product_url, qty, unit, unit_price_cents, status, ordered_at, delivered_at, notes, vendors(name), scope_items(task)')
+    .eq('project_id', projectId)
+    .order('created_at')
+  if (error) throw error
+  return (data as unknown as Material[]) ?? []
+}
+
+export async function materialsTotal(projectId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('materials_total', { p_project_id: projectId })
+  if (error) throw error
+  return (data as number) ?? 0
+}
+
+export async function addMaterial(
+  orgId: string,
+  projectId: string,
+  m: { name: string; retailer: Retailer | ''; sku: string; productUrl: string; qty: number; unit: string; unitPriceCents: number; vendorId: string; scopeItemId: string; notes: string },
+): Promise<void> {
+  const { error } = await supabase.from('materials').insert({
+    org_id: orgId,
+    project_id: projectId,
+    name: m.name,
+    retailer: m.retailer || null,
+    sku: m.sku || null,
+    product_url: m.productUrl || null,
+    qty: m.qty,
+    unit: m.unit,
+    unit_price_cents: m.unitPriceCents,
+    vendor_id: m.vendorId || null,
+    scope_item_id: m.scopeItemId || null,
+    notes: m.notes || null,
+  })
+  if (error) throw error
+}
+
+export async function orderMaterial(id: string): Promise<void> {
+  const { error } = await supabase.rpc('order_material', { p_material_id: id })
+  if (error) throw error
+}
+
+export async function setMaterialStatus(id: string, status: Exclude<MaterialStatus, 'ordered'>): Promise<void> {
+  const patch: Record<string, unknown> = { status }
+  if (status === 'delivered') patch.delivered_at = new Date().toISOString().slice(0, 10)
+  const { error } = await supabase.from('materials').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteMaterial(id: string): Promise<void> {
+  const { error } = await supabase.from('materials').delete().eq('id', id)
+  if (error) throw error
+}

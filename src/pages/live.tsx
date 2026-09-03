@@ -10,9 +10,14 @@ import {
   portfolioCashflow, portfolioRisk,
   scopeItems, scopeEstimateTotal, addScopeItem, setScopeItemStatus, deleteScopeItem,
   vendorsList, addVendor, bidsList, addBid, setBidStatus, awardBid, deleteBid,
-  canEditFinancials, canUploadProof, canEditScope, canSeeBids, canManageBids,
+  materialsList, materialsTotal, addMaterial, orderMaterial, setMaterialStatus, deleteMaterial,
+  canEditFinancials, canSeeFinancials, canUploadProof, canEditScope, canSeeBids, canManageBids,
+  canManageMaterials, canReceiveMaterials,
 } from '../lib/data'
-import type { OrgRole, AuditRow, ProofRow, CashflowMonth, RiskRow, ScopeItem, ScopeItemStatus, Vendor, Bid } from '../lib/data'
+import type {
+  OrgRole, AuditRow, ProofRow, CashflowMonth, RiskRow, ScopeItem, ScopeItemStatus, Vendor, Bid,
+  Material, Retailer,
+} from '../lib/data'
 
 export interface Ctx {
   orgId: string
@@ -723,6 +728,168 @@ export function LiveBidsPage({ ctx }: { ctx: Ctx }) {
         </div>
       ))}
       {bids.length === 0 && <div className="emptyState"><b>No bids yet</b>{canManage ? 'Add a vendor, then log their bid above.' : 'Bids will appear here once the PM logs them.'}</div>}
+    </section>
+  )
+}
+
+const RETAILERS: [Retailer, string][] = [['home_depot', 'Home Depot'], ['lowes', "Lowe's"], ['amazon', 'Amazon'], ['local', 'Local supplier'], ['other', 'Other']]
+const retailerLabel = (r: Retailer | null) => RETAILERS.find(([k]) => k === r)?.[1] ?? '—'
+
+function AddMaterialForm({ ctx, vendors, scope, onAdded }: { ctx: Ctx; vendors: Vendor[]; scope: ScopeItem[]; onAdded: () => void }) {
+  const [name, setName] = useState('')
+  const [retailer, setRetailer] = useState<Retailer | ''>('')
+  const [sku, setSku] = useState('')
+  const [productUrl, setProductUrl] = useState('')
+  const [qty, setQty] = useState('1')
+  const [unit, setUnit] = useState('EA')
+  const [price, setPrice] = useState('')
+  const [vendorId, setVendorId] = useState('')
+  const [scopeItemId, setScopeItemId] = useState('')
+  const [notes, setNotes] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true); setError('')
+    try {
+      await addMaterial(ctx.orgId, ctx.projectId, {
+        name: name.trim(), retailer, sku: sku.trim(), productUrl: productUrl.trim(),
+        qty: Number(qty) || 1, unit: unit.trim() || 'EA',
+        unitPriceCents: Math.round((Number(price) || 0) * 100),
+        vendorId, scopeItemId, notes: notes.trim(),
+      })
+      setName(''); setSku(''); setProductUrl(''); setQty('1'); setPrice(''); setNotes('')
+      onAdded()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add material')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <input className="search" style={{ maxWidth: 220 }} placeholder="Item name" value={name} onChange={(e) => setName(e.target.value)} required />
+      <select className="search" style={{ maxWidth: 150 }} value={retailer} onChange={(e) => setRetailer(e.target.value as Retailer | '')}>
+        <option value="">Retailer…</option>
+        {RETAILERS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+      </select>
+      <input className="search" style={{ maxWidth: 120 }} placeholder="SKU" value={sku} onChange={(e) => setSku(e.target.value)} />
+      <input className="search" style={{ maxWidth: 220 }} placeholder="Product URL" value={productUrl} onChange={(e) => setProductUrl(e.target.value)} />
+      <input className="search" style={{ maxWidth: 70 }} placeholder="Qty" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} />
+      <input className="search" style={{ maxWidth: 70 }} placeholder="Unit" value={unit} onChange={(e) => setUnit(e.target.value)} />
+      <input className="search" style={{ maxWidth: 110 }} placeholder="$ / unit" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />
+      <select className="search" style={{ maxWidth: 180 }} value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
+        <option value="">Vendor (optional)</option>
+        {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+      </select>
+      <select className="search" style={{ maxWidth: 220 }} value={scopeItemId} onChange={(e) => setScopeItemId(e.target.value)}>
+        <option value="">Scope line (optional)</option>
+        {scope.map((s) => <option key={s.id} value={s.id}>{s.room} · {s.task}</option>)}
+      </select>
+      <input className="search" style={{ maxWidth: 200 }} placeholder="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+      <button className="btn p" disabled={busy}>{busy ? 'Adding…' : 'Add material'}</button>
+      {error && <span style={{ color: 'var(--red)', fontSize: 12 }}>{error}</span>}
+    </form>
+  )
+}
+
+export function LiveMaterialsPage({ ctx }: { ctx: Ctx }) {
+  const [items, setItems] = useState<Material[]>([])
+  const [total, setTotal] = useState(0)
+  const [vendors, setVendors] = useState<Vendor[]>([])
+  const [scope, setScope] = useState<ScopeItem[]>([])
+  const [error, setError] = useState('')
+  const showMoney = canSeeFinancials(ctx.role)
+  const canManage = canManageMaterials(ctx.role)
+  const canReceive = canReceiveMaterials(ctx.role)
+
+  const reload = useCallback(async () => {
+    if (!ctx.projectId) return
+    const [m, v, s] = await Promise.all([
+      materialsList(ctx.projectId),
+      vendorsList(),
+      scopeItems(ctx.projectId),
+    ])
+    setItems(m); setVendors(v); setScope(s)
+    if (canSeeFinancials(ctx.role)) setTotal(await materialsTotal(ctx.projectId))
+  }, [ctx.projectId, ctx.role])
+  useEffect(() => { reload() }, [reload])
+
+  if (!ctx.hasProject) {
+    return (
+      <section className="page on">
+        <div className="sectiontitle"><h2>Materials & POs</h2></div>
+        <NoPropertyCard ctx={ctx} />
+      </section>
+    )
+  }
+
+  async function run(fn: () => Promise<void>) {
+    setError('')
+    try { await fn(); await reload(); ctx.reload() }
+    catch (err) { setError(err instanceof Error ? err.message : 'Action failed') }
+  }
+
+  const pillClass = (s: Material['status']) =>
+    s === 'installed' || s === 'delivered' ? 'green' : s === 'ordered' ? 'amber' : s === 'returned' ? 'red' : ''
+
+  return (
+    <section className="page on">
+      <div className="sectiontitle"><div><h2>Materials & POs — {ctx.projectName}</h2>
+        <div className="subtle">Selections tied to scope lines and vendors. Placing an order commits the cost in the ledger.</div></div>
+        <span className="pill green">LIVE</span></div>
+
+      <div className="grid" style={{ gridTemplateColumns: showMoney ? 'repeat(3,minmax(0,1fr))' : 'repeat(2,minmax(0,1fr))' }}>
+        <div className="kpi"><small>Items</small><strong>{items.length}</strong></div>
+        <div className="kpi"><small>On order</small><strong>{items.filter((m) => m.status === 'ordered').length}</strong></div>
+        {showMoney && <div className="kpi"><small>Materials total</small><strong>{formatCents(total)}</strong></div>}
+      </div>
+
+      {canManage && (
+        <div className="card">
+          <h3>Add material</h3>
+          <AddMaterialForm ctx={ctx} vendors={vendors} scope={scope} onAdded={reload} />
+        </div>
+      )}
+      {error && <p style={{ color: 'var(--red)', fontSize: 12 }}>{error}</p>}
+
+      <div className="card tablewrap">
+        <table className="table">
+          <thead><tr><th>Item</th><th>Source</th><th>Qty</th>{showMoney && <th>Price</th>}{showMoney && <th>Total</th>}<th>Status</th>{(canManage || canReceive) && <th />}</tr></thead>
+          <tbody>
+            {items.map((m) => (
+              <tr key={m.id}>
+                <td>
+                  {m.product_url ? <a href={m.product_url} target="_blank" rel="noreferrer" style={{ color: 'var(--blue)' }}>{m.name}</a> : m.name}
+                  {m.scope_items && <div className="subtle" style={{ fontSize: 10 }}>for: {m.scope_items.task}</div>}
+                  {m.notes && <div className="subtle" style={{ fontSize: 10 }}>{m.notes}</div>}
+                </td>
+                <td>{m.vendors?.name ?? retailerLabel(m.retailer)}{m.sku && <div className="subtle" style={{ fontSize: 10 }}>SKU {m.sku}</div>}</td>
+                <td>{m.qty} {m.unit}</td>
+                {showMoney && <td>{formatCents(m.unit_price_cents)}</td>}
+                {showMoney && <td>{formatCents(Math.round(m.qty * m.unit_price_cents))}</td>}
+                <td>
+                  <span className={`pill ${pillClass(m.status)}`}>{m.status}</span>
+                  {m.delivered_at && <div className="subtle" style={{ fontSize: 10 }}>delivered {m.delivered_at}</div>}
+                  {!m.delivered_at && m.ordered_at && <div className="subtle" style={{ fontSize: 10 }}>ordered {m.ordered_at}</div>}
+                </td>
+                {(canManage || canReceive) && (
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    {canManage && m.status === 'selected' && <button className="btn p" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => run(() => orderMaterial(m.id))}>Order</button>}{' '}
+                    {canReceive && m.status === 'ordered' && <button className="btn" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => run(() => setMaterialStatus(m.id, 'delivered'))}>Received</button>}{' '}
+                    {canReceive && m.status === 'delivered' && <button className="btn" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => run(() => setMaterialStatus(m.id, 'installed'))}>Installed</button>}{' '}
+                    {canManage && (m.status === 'ordered' || m.status === 'delivered') && <button className="btn ghost" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => run(() => setMaterialStatus(m.id, 'returned'))}>Return</button>}{' '}
+                    {canManage && m.status === 'selected' && <button className="btn ghost" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => run(() => deleteMaterial(m.id))}>Remove</button>}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {items.length === 0 && <div className="emptyState"><b>No materials yet</b>{canManage ? 'Add the first selection above.' : 'Selections will appear here once the PM adds them.'}</div>}
+      </div>
     </section>
   )
 }
