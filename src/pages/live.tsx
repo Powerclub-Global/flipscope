@@ -13,13 +13,18 @@ import {
   materialsList, materialsTotal, addMaterial, orderMaterial, setMaterialStatus, deleteMaterial,
   scheduleTasks, scheduleSummary, addScheduleTask, updateScheduleTask, deleteScheduleTask,
   changeOrdersList, addChangeOrder, decideChangeOrder, voidChangeOrder, rfisList, addRfi, answerRfi, closeRfi,
+  punchItems, addPunchItem, setPunchStatus, deletePunchItem,
+  closeoutItems, seedCloseoutChecklist, setCloseoutItemStatus, addCloseoutItem,
+  warrantiesList, addWarranty, deleteWarranty, closeoutReadiness, closeProject,
   canEditFinancials, canSeeFinancials, canUploadProof, canEditScope, canSeeBids, canManageBids,
   canManageMaterials, canReceiveMaterials, canManageSchedule, canUpdateProgress,
   canSeeChangeOrders, canManageChangeOrders, canRaiseRfi, canAnswerRfi,
+  canRaisePunch, canManageCloseout,
 } from '../lib/data'
 import type {
   OrgRole, AuditRow, ProofRow, CashflowMonth, RiskRow, ScopeItem, ScopeItemStatus, Vendor, Bid,
   Material, Retailer, ScheduleTask, ScheduleSummary, TaskStatus, ChangeOrder, Rfi,
+  PunchItem, PunchStatus, CloseoutItem, Warranty, CloseoutReadiness,
 } from '../lib/data'
 
 export interface Ctx {
@@ -1275,6 +1280,198 @@ export function LiveChangesPage({ ctx }: { ctx: Ctx }) {
         ))}
       </div>
       {rfis.length === 0 && <div className="emptyState"><b>No RFIs</b>Field questions raised here get a tracked answer.</div>}
+    </section>
+  )
+}
+
+const PUNCH_STATUSES: PunchStatus[] = ['open', 'in_progress', 'resolved', 'verified']
+
+export function LiveCloseoutPage({ ctx }: { ctx: Ctx }) {
+  const [punch, setPunch] = useState<PunchItem[]>([])
+  const [checklist, setChecklist] = useState<CloseoutItem[]>([])
+  const [warranties, setWarranties] = useState<Warranty[]>([])
+  const [vendors, setVendors] = useState<Vendor[]>([])
+  const [readiness, setReadiness] = useState<CloseoutReadiness | null>(null)
+  const [error, setError] = useState('')
+  const [punchTitle, setPunchTitle] = useState('')
+  const [punchRoom, setPunchRoom] = useState('')
+  const [wItem, setWItem] = useState('')
+  const [wProvider, setWProvider] = useState('')
+  const [wExpires, setWExpires] = useState('')
+  const [wVendor, setWVendor] = useState('')
+  const canRaise = canRaisePunch(ctx.role)
+  const canManage = canManageCloseout(ctx.role)
+
+  const reload = useCallback(async () => {
+    if (!ctx.projectId) return
+    const [p, c, w, v, r] = await Promise.all([
+      punchItems(ctx.projectId), closeoutItems(ctx.projectId), warrantiesList(ctx.projectId),
+      vendorsList(), closeoutReadiness(ctx.projectId),
+    ])
+    setPunch(p); setChecklist(c); setWarranties(w); setVendors(v); setReadiness(r)
+  }, [ctx.projectId])
+  useEffect(() => { reload() }, [reload])
+
+  if (!ctx.hasProject) {
+    return (
+      <section className="page on">
+        <div className="sectiontitle"><h2>Closeout & Warranty</h2></div>
+        <NoPropertyCard ctx={ctx} />
+      </section>
+    )
+  }
+
+  async function run(fn: () => Promise<void>) {
+    setError('')
+    try { await fn(); await reload(); ctx.reload() }
+    catch (err) { setError(err instanceof Error ? err.message : 'Action failed') }
+  }
+
+  const punchPill = (s: PunchStatus) => s === 'verified' ? 'green' : s === 'resolved' ? 'green' : s === 'in_progress' ? 'amber' : 'red'
+
+  return (
+    <section className="page on">
+      <div className="sectiontitle"><div><h2>Closeout & Warranty — {ctx.projectName}</h2>
+        <div className="subtle">A project can only be closed when every punch item is resolved and every required checklist item is done.</div></div>
+        <span className="pill green">LIVE</span></div>
+
+      <div className="grid">
+        <div className="kpi"><small>Punch open</small><strong style={{ color: readiness?.punch_open ? 'var(--red)' : 'var(--green)' }}>{readiness?.punch_open ?? 0}</strong><div className="delta">of {readiness?.punch_total ?? 0}</div></div>
+        <div className="kpi"><small>Checklist open</small><strong style={{ color: readiness?.checklist_open ? 'var(--amber)' : 'var(--green)' }}>{readiness?.checklist_open ?? 0}</strong><div className="delta">required items</div></div>
+        <div className="kpi"><small>Warranties</small><strong>{warranties.length}</strong></div>
+        <div className="kpi"><small>Status</small><strong style={{ fontSize: 18, color: readiness?.ready ? 'var(--green)' : 'var(--muted)' }}>{readiness?.ready ? 'Ready to close' : 'In progress'}</strong></div>
+      </div>
+
+      {canManage && (
+        <div className="card">
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {checklist.length === 0 && <button className="btn" onClick={() => run(() => seedCloseoutChecklist(ctx.projectId))}>Start closeout checklist</button>}
+            <button className="btn p" disabled={!readiness?.ready} onClick={() => run(() => closeProject(ctx.projectId))}>
+              {readiness?.ready ? 'Close project (mark sold)' : 'Close project — blocked'}
+            </button>
+            {!readiness?.ready && <span className="subtle" style={{ fontSize: 11 }}>
+              {readiness?.checklist_total === 0 ? 'Start the checklist first.' : `${readiness?.punch_open ?? 0} punch + ${readiness?.checklist_open ?? 0} required item(s) outstanding.`}
+            </span>}
+          </div>
+        </div>
+      )}
+      {error && <p style={{ color: 'var(--red)', fontSize: 12 }}>{error}</p>}
+
+      <div className="grid2">
+        <div className="card">
+          <div className="sectiontitle" style={{ margin: '0 0 8px' }}><h3 style={{ margin: 0 }}>Punch list</h3>
+            <span className={`pill ${readiness?.punch_open ? 'red' : 'green'}`}>{readiness?.punch_open ?? 0} open</span></div>
+          {canRaise && (
+            <form
+              style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}
+              onSubmit={(e) => { e.preventDefault(); if (punchTitle.trim()) run(async () => { await addPunchItem(ctx.orgId, ctx.projectId, { room: punchRoom.trim(), title: punchTitle.trim(), detail: '' }); setPunchTitle(''); setPunchRoom('') }) }}
+            >
+              <input className="search" style={{ maxWidth: 110 }} placeholder="Room" value={punchRoom} onChange={(e) => setPunchRoom(e.target.value)} />
+              <input className="search" style={{ maxWidth: 220 }} placeholder="What needs fixing?" value={punchTitle} onChange={(e) => setPunchTitle(e.target.value)} required />
+              <button className="btn p" style={{ padding: '6px 12px' }}>Add</button>
+            </form>
+          )}
+          {punch.map((p) => (
+            <div className="scopeitem" key={p.id}>
+              <div className={`check ${p.status === 'verified' ? 'done' : ''}`}>{p.status === 'verified' ? '✓' : ''}</div>
+              <div>
+                <strong>{p.title}</strong>
+                <div className="scopemeta">
+                  {p.room && <span className="pill">{p.room}</span>}
+                  <span className={`pill ${punchPill(p.status)}`}>{p.status.replace('_', ' ')}</span>
+                  {p.proof_required && <span className="pill">proof required</span>}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                {canRaise && (
+                  <select value={p.status} onChange={(e) => run(() => setPunchStatus(p.id, e.target.value as PunchStatus))} style={{ fontSize: 11 }}>
+                    {PUNCH_STATUSES.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                  </select>
+                )}
+                {canManage && <div><button className="btn ghost" style={{ padding: '2px 8px', fontSize: 11, marginTop: 4 }} onClick={() => run(() => deletePunchItem(p.id))}>Remove</button></div>}
+              </div>
+            </div>
+          ))}
+          {punch.length === 0 && <p className="subtle">No punch items.</p>}
+        </div>
+
+        <div className="card">
+          <div className="sectiontitle" style={{ margin: '0 0 8px' }}><h3 style={{ margin: 0 }}>Closeout checklist</h3>
+            <span className={`pill ${readiness?.checklist_open ? 'amber' : 'green'}`}>{checklist.filter((c) => c.status === 'done').length}/{checklist.length}</span></div>
+          {checklist.map((c) => (
+            <div className="scopeitem" key={c.id}>
+              <div
+                className={`check ${c.status === 'done' ? 'done' : ''}`}
+                style={{ cursor: canManage ? 'pointer' : 'default' }}
+                onClick={() => canManage && run(() => setCloseoutItemStatus(c.id, c.status === 'done' ? 'open' : 'done'))}
+              >{c.status === 'done' ? '✓' : ''}</div>
+              <div>
+                <strong style={{ textDecoration: c.status === 'na' ? 'line-through' : undefined }}>{c.title}</strong>
+                <div className="scopemeta">
+                  {c.required ? <span className="pill amber">required</span> : <span className="pill">optional</span>}
+                  {c.completed_at && <span className="subtle" style={{ fontSize: 10 }}>{new Date(c.completed_at).toLocaleDateString()}</span>}
+                </div>
+              </div>
+              {canManage && (
+                <button className="btn ghost" style={{ padding: '2px 8px', fontSize: 11 }} onClick={() => run(() => setCloseoutItemStatus(c.id, c.status === 'na' ? 'open' : 'na'))}>
+                  {c.status === 'na' ? 'Restore' : 'N/A'}
+                </button>
+              )}
+            </div>
+          ))}
+          {checklist.length === 0 && <p className="subtle">{canManage ? 'Start the checklist above.' : 'Not started yet.'}</p>}
+          {canManage && checklist.length > 0 && (
+            <form
+              style={{ display: 'flex', gap: 6, marginTop: 10 }}
+              onSubmit={(e) => {
+                e.preventDefault()
+                const input = (e.currentTarget.elements.namedItem('extra') as HTMLInputElement)
+                if (input.value.trim()) run(async () => { await addCloseoutItem(ctx.orgId, ctx.projectId, input.value.trim(), true); input.value = '' })
+              }}
+            >
+              <input className="search" name="extra" placeholder="Add checklist item" />
+              <button className="btn" style={{ padding: '6px 12px' }}>Add</button>
+            </form>
+          )}
+        </div>
+      </div>
+
+      <div className="card tablewrap">
+        <h3>Warranties</h3>
+        {canManage && (
+          <form
+            style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}
+            onSubmit={(e) => { e.preventDefault(); if (wItem.trim()) run(async () => { await addWarranty(ctx.orgId, ctx.projectId, { item: wItem.trim(), provider: wProvider.trim(), expiresOn: wExpires, documentUrl: '', vendorId: wVendor }); setWItem(''); setWProvider(''); setWExpires(''); setWVendor('') }) }}
+          >
+            <input className="search" style={{ maxWidth: 180 }} placeholder="Item (e.g. HVAC)" value={wItem} onChange={(e) => setWItem(e.target.value)} required />
+            <input className="search" style={{ maxWidth: 180 }} placeholder="Provider" value={wProvider} onChange={(e) => setWProvider(e.target.value)} />
+            <select className="search" style={{ maxWidth: 180 }} value={wVendor} onChange={(e) => setWVendor(e.target.value)}>
+              <option value="">Vendor (optional)</option>
+              {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+            <input className="search" style={{ maxWidth: 160 }} type="date" value={wExpires} onChange={(e) => setWExpires(e.target.value)} />
+            <button className="btn p">Add warranty</button>
+          </form>
+        )}
+        <table className="table">
+          <thead><tr><th>Item</th><th>Provider</th><th>Starts</th><th>Expires</th>{canManage && <th />}</tr></thead>
+          <tbody>
+            {warranties.map((w) => {
+              const expired = w.expires_on && new Date(w.expires_on) < new Date()
+              return (
+                <tr key={w.id}>
+                  <td>{w.item}</td>
+                  <td>{w.vendors?.name ?? w.provider ?? '—'}</td>
+                  <td>{w.starts_on}</td>
+                  <td>{w.expires_on ? <span className={`pill ${expired ? 'red' : 'green'}`}>{w.expires_on}</span> : '—'}</td>
+                  {canManage && <td><button className="btn ghost" style={{ padding: '2px 8px', fontSize: 11 }} onClick={() => run(() => deleteWarranty(w.id))}>Remove</button></td>}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        {warranties.length === 0 && <p className="subtle">No warranties registered.</p>}
+      </div>
     </section>
   )
 }

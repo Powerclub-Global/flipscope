@@ -529,3 +529,144 @@ export async function closeRfi(id: string): Promise<void> {
   const { error } = await supabase.from('rfis').update({ status: 'closed' }).eq('id', id)
   if (error) throw error
 }
+
+export type PunchStatus = 'open' | 'in_progress' | 'resolved' | 'verified'
+export type CloseoutItemStatus = 'open' | 'done' | 'na'
+
+export interface PunchItem {
+  id: string
+  room: string | null
+  title: string
+  detail: string | null
+  status: PunchStatus
+  proof_required: boolean
+  resolved_at: string | null
+  verified_at: string | null
+}
+
+export interface CloseoutItem {
+  id: string
+  title: string
+  detail: string | null
+  required: boolean
+  status: CloseoutItemStatus
+  completed_at: string | null
+}
+
+export interface Warranty {
+  id: string
+  item: string
+  provider: string | null
+  starts_on: string
+  expires_on: string | null
+  document_url: string | null
+  vendors: { name: string } | null
+}
+
+export interface CloseoutReadiness {
+  punch_open: number
+  punch_total: number
+  checklist_open: number
+  checklist_total: number
+  ready: boolean
+}
+
+export const canRaisePunch = (r: OrgRole) => r !== 'investor'
+export const canManageCloseout = canEditFinancials
+
+export async function punchItems(projectId: string): Promise<PunchItem[]> {
+  const { data, error } = await supabase
+    .from('punch_items')
+    .select('id, room, title, detail, status, proof_required, resolved_at, verified_at')
+    .eq('project_id', projectId)
+    .order('created_at')
+  if (error) throw error
+  return (data as PunchItem[]) ?? []
+}
+
+export async function addPunchItem(orgId: string, projectId: string, p: { room: string; title: string; detail: string }): Promise<void> {
+  const { error } = await supabase.from('punch_items').insert({
+    org_id: orgId, project_id: projectId, room: p.room || null, title: p.title, detail: p.detail || null,
+  })
+  if (error) throw error
+}
+
+export async function setPunchStatus(id: string, status: PunchStatus): Promise<void> {
+  const { error } = await supabase.from('punch_items').update({ status }).eq('id', id)
+  if (error) throw error
+}
+
+export async function deletePunchItem(id: string): Promise<void> {
+  const { error } = await supabase.from('punch_items').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function closeoutItems(projectId: string): Promise<CloseoutItem[]> {
+  const { data, error } = await supabase
+    .from('closeout_items')
+    .select('id, title, detail, required, status, completed_at')
+    .eq('project_id', projectId)
+    .order('created_at')
+  if (error) throw error
+  return (data as CloseoutItem[]) ?? []
+}
+
+export async function seedCloseoutChecklist(projectId: string): Promise<void> {
+  const { error } = await supabase.rpc('seed_closeout_checklist', { p_project_id: projectId })
+  if (error) throw error
+}
+
+export async function setCloseoutItemStatus(id: string, status: CloseoutItemStatus): Promise<void> {
+  const { error } = await supabase.from('closeout_items').update({ status }).eq('id', id)
+  if (error) throw error
+}
+
+export async function addCloseoutItem(orgId: string, projectId: string, title: string, required: boolean): Promise<void> {
+  const { error } = await supabase.from('closeout_items').insert({
+    org_id: orgId, project_id: projectId, title, required,
+  })
+  if (error) throw error
+}
+
+export async function warrantiesList(projectId: string): Promise<Warranty[]> {
+  const { data, error } = await supabase
+    .from('warranties')
+    .select('id, item, provider, starts_on, expires_on, document_url, vendors(name)')
+    .eq('project_id', projectId)
+    .order('expires_on', { nullsFirst: false })
+  if (error) throw error
+  return (data as unknown as Warranty[]) ?? []
+}
+
+export async function addWarranty(
+  orgId: string,
+  projectId: string,
+  w: { item: string; provider: string; expiresOn: string; documentUrl: string; vendorId: string },
+): Promise<void> {
+  const { error } = await supabase.from('warranties').insert({
+    org_id: orgId,
+    project_id: projectId,
+    item: w.item,
+    provider: w.provider || null,
+    expires_on: w.expiresOn || null,
+    document_url: w.documentUrl || null,
+    vendor_id: w.vendorId || null,
+  })
+  if (error) throw error
+}
+
+export async function deleteWarranty(id: string): Promise<void> {
+  const { error } = await supabase.from('warranties').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function closeoutReadiness(projectId: string): Promise<CloseoutReadiness | null> {
+  const { data, error } = await supabase.rpc('closeout_readiness', { p_project_id: projectId })
+  if (error) throw error
+  return ((data as CloseoutReadiness[])?.[0]) ?? null
+}
+
+export async function closeProject(projectId: string): Promise<void> {
+  const { error } = await supabase.rpc('close_project', { p_project_id: projectId })
+  if (error) throw error
+}
