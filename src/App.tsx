@@ -5,11 +5,11 @@ import { projectFinancials, portfolioFinancials, formatCents, formatRoi } from '
 import type { Financials } from './lib/financials'
 import { myRole, canSeeFinancials } from './lib/data'
 import type { OrgRole } from './lib/data'
-import { HomePage, FinancialsPage, FieldPage, FeedPage, PortalPage, RiskPage, TeamPage, LiveScopePage, LiveBidsPage, LiveMaterialsPage } from './pages/live'
+import { HomePage, FinancialsPage, FieldPage, FeedPage, PortalPage, RiskPage, TeamPage, LiveScopePage, LiveBidsPage, LiveMaterialsPage, LiveSchedulePage } from './pages/live'
 import type { Ctx } from './pages/live'
 import {
   CopilotPage, DealPage, CapturePage, DesignPage,
-  SchedulePage, ChangesPage, CloseoutPage, ReportsPage,
+  ChangesPage, CloseoutPage, ReportsPage,
 } from './pages/preview'
 import './App.css'
 
@@ -191,7 +191,7 @@ function Shell({ session }: { session: Session }) {
     scope: <LiveScopePage ctx={ctx} />,
     bids: <LiveBidsPage ctx={ctx} />,
     design: <DesignPage />,
-    schedule: <SchedulePage />,
+    schedule: <LiveSchedulePage ctx={ctx} />,
     field: <FieldPage ctx={ctx} />,
     materials: <LiveMaterialsPage ctx={ctx} />,
     financials: showMoney ? <FinancialsPage ctx={ctx} /> : <PortalPage ctx={ctx} />,

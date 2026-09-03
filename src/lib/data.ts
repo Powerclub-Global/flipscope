@@ -356,3 +356,79 @@ export async function deleteMaterial(id: string): Promise<void> {
   const { error } = await supabase.from('materials').delete().eq('id', id)
   if (error) throw error
 }
+
+export type TaskStatus = 'planned' | 'scheduled' | 'in_progress' | 'blocked' | 'done'
+
+export interface ScheduleTask {
+  id: string
+  name: string
+  trade: string | null
+  start_date: string
+  duration_days: number
+  progress_pct: number
+  status: TaskStatus
+  notes: string | null
+  scope_item_id: string | null
+  vendors: { name: string } | null
+}
+
+export interface ScheduleSummary {
+  starts_on: string | null
+  ends_on: string | null
+  task_count: number
+  done_count: number
+  progress_pct: number
+}
+
+export const canManageSchedule = canEditFinancials
+export const canUpdateProgress = (r: OrgRole) => r !== 'investor'
+
+export async function scheduleTasks(projectId: string): Promise<ScheduleTask[]> {
+  const { data, error } = await supabase
+    .from('schedule_tasks')
+    .select('id, name, trade, start_date, duration_days, progress_pct, status, notes, scope_item_id, vendors(name)')
+    .eq('project_id', projectId)
+    .order('start_date')
+    .order('created_at')
+  if (error) throw error
+  return (data as unknown as ScheduleTask[]) ?? []
+}
+
+export async function scheduleSummary(projectId: string): Promise<ScheduleSummary | null> {
+  const { data, error } = await supabase.rpc('project_schedule', { p_project_id: projectId })
+  if (error) throw error
+  const row = (data as ScheduleSummary[])?.[0]
+  return row ?? null
+}
+
+export async function addScheduleTask(
+  orgId: string,
+  projectId: string,
+  t: { name: string; trade: string; startDate: string; durationDays: number; scopeItemId: string; vendorId: string; notes: string },
+): Promise<void> {
+  const { error } = await supabase.from('schedule_tasks').insert({
+    org_id: orgId,
+    project_id: projectId,
+    name: t.name,
+    trade: t.trade || null,
+    start_date: t.startDate,
+    duration_days: t.durationDays,
+    scope_item_id: t.scopeItemId || null,
+    vendor_id: t.vendorId || null,
+    notes: t.notes || null,
+  })
+  if (error) throw error
+}
+
+export async function updateScheduleTask(
+  id: string,
+  patch: Partial<{ progress_pct: number; status: TaskStatus; start_date: string; duration_days: number }>,
+): Promise<void> {
+  const { error } = await supabase.from('schedule_tasks').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteScheduleTask(id: string): Promise<void> {
+  const { error } = await supabase.from('schedule_tasks').delete().eq('id', id)
+  if (error) throw error
+}

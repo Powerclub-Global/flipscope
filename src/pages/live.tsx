@@ -11,12 +11,13 @@ import {
   scopeItems, scopeEstimateTotal, addScopeItem, setScopeItemStatus, deleteScopeItem,
   vendorsList, addVendor, bidsList, addBid, setBidStatus, awardBid, deleteBid,
   materialsList, materialsTotal, addMaterial, orderMaterial, setMaterialStatus, deleteMaterial,
+  scheduleTasks, scheduleSummary, addScheduleTask, updateScheduleTask, deleteScheduleTask,
   canEditFinancials, canSeeFinancials, canUploadProof, canEditScope, canSeeBids, canManageBids,
-  canManageMaterials, canReceiveMaterials,
+  canManageMaterials, canReceiveMaterials, canManageSchedule, canUpdateProgress,
 } from '../lib/data'
 import type {
   OrgRole, AuditRow, ProofRow, CashflowMonth, RiskRow, ScopeItem, ScopeItemStatus, Vendor, Bid,
-  Material, Retailer,
+  Material, Retailer, ScheduleTask, ScheduleSummary, TaskStatus,
 } from '../lib/data'
 
 export interface Ctx {
@@ -890,6 +891,190 @@ export function LiveMaterialsPage({ ctx }: { ctx: Ctx }) {
         </table>
         {items.length === 0 && <div className="emptyState"><b>No materials yet</b>{canManage ? 'Add the first selection above.' : 'Selections will appear here once the PM adds them.'}</div>}
       </div>
+    </section>
+  )
+}
+
+const TASK_STATUSES: TaskStatus[] = ['planned', 'scheduled', 'in_progress', 'blocked', 'done']
+const addDays = (iso: string, n: number) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return d }
+const fmtDay = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+
+function AddTaskForm({ ctx, scope, vendors, onAdded }: { ctx: Ctx; scope: ScopeItem[]; vendors: Vendor[]; onAdded: () => void }) {
+  const [name, setName] = useState('')
+  const [trade, setTrade] = useState('')
+  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10))
+  const [days, setDays] = useState('1')
+  const [scopeItemId, setScopeItemId] = useState('')
+  const [vendorId, setVendorId] = useState('')
+  const [notes, setNotes] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  function pickScope(id: string) {
+    setScopeItemId(id)
+    const s = scope.find((x) => x.id === id)
+    if (s) { if (!name) setName(s.task); if (!trade) setTrade(s.trade) }
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true); setError('')
+    try {
+      await addScheduleTask(ctx.orgId, ctx.projectId, {
+        name: name.trim(), trade: trade.trim(), startDate,
+        durationDays: Math.max(1, Number(days) || 1), scopeItemId, vendorId, notes: notes.trim(),
+      })
+      setName(''); setTrade(''); setDays('1'); setScopeItemId(''); setNotes('')
+      onAdded()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add task')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <select className="search" style={{ maxWidth: 240 }} value={scopeItemId} onChange={(e) => pickScope(e.target.value)}>
+        <option value="">From scope line (optional)</option>
+        {scope.map((s) => <option key={s.id} value={s.id}>{s.room} · {s.task}</option>)}
+      </select>
+      <input className="search" style={{ maxWidth: 220 }} placeholder="Task" value={name} onChange={(e) => setName(e.target.value)} required />
+      <input className="search" style={{ maxWidth: 120 }} placeholder="Trade" value={trade} onChange={(e) => setTrade(e.target.value)} />
+      <input className="search" style={{ maxWidth: 150 }} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+      <input className="search" style={{ maxWidth: 80 }} placeholder="Days" inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} />
+      <select className="search" style={{ maxWidth: 180 }} value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
+        <option value="">Vendor (optional)</option>
+        {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+      </select>
+      <input className="search" style={{ maxWidth: 200 }} placeholder="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+      <button className="btn p" disabled={busy}>{busy ? 'Adding…' : 'Add task'}</button>
+      {error && <span style={{ color: 'var(--red)', fontSize: 12 }}>{error}</span>}
+    </form>
+  )
+}
+
+export function LiveSchedulePage({ ctx }: { ctx: Ctx }) {
+  const [tasks, setTasks] = useState<ScheduleTask[]>([])
+  const [summary, setSummary] = useState<ScheduleSummary | null>(null)
+  const [scope, setScope] = useState<ScopeItem[]>([])
+  const [vendors, setVendors] = useState<Vendor[]>([])
+  const [error, setError] = useState('')
+  const canManage = canManageSchedule(ctx.role)
+  const canProgress = canUpdateProgress(ctx.role)
+
+  const reload = useCallback(async () => {
+    if (!ctx.projectId) return
+    const [t, s, sc, v] = await Promise.all([
+      scheduleTasks(ctx.projectId), scheduleSummary(ctx.projectId), scopeItems(ctx.projectId), vendorsList(),
+    ])
+    setTasks(t); setSummary(s); setScope(sc); setVendors(v)
+  }, [ctx.projectId])
+  useEffect(() => { reload() }, [reload])
+
+  if (!ctx.hasProject) {
+    return (
+      <section className="page on">
+        <div className="sectiontitle"><h2>Calendar & Schedule</h2></div>
+        <NoPropertyCard ctx={ctx} />
+      </section>
+    )
+  }
+
+  async function run(fn: () => Promise<void>) {
+    setError('')
+    try { await fn(); await reload() }
+    catch (err) { setError(err instanceof Error ? err.message : 'Action failed') }
+  }
+
+  const min = tasks.length ? Math.min(...tasks.map((t) => +new Date(t.start_date + 'T00:00:00'))) : 0
+  const max = tasks.length ? Math.max(...tasks.map((t) => +addDays(t.start_date, t.duration_days))) : 1
+  const span = Math.max(1, max - min)
+  const today = +new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00')
+  const todayPct = ((today - min) / span) * 100
+  const barColor = (s: TaskStatus) => s === 'done' ? 'linear-gradient(90deg,#287239,#55cd42)' : s === 'blocked' ? '#8a4a4a' : s === 'in_progress' ? 'linear-gradient(90deg,#6c5a21,#f0c75e)' : '#2c4a38'
+
+  return (
+    <section className="page on">
+      <div className="sectiontitle"><div><h2>Calendar & Schedule — {ctx.projectName}</h2>
+        <div className="subtle">Trade-level plan. Progress on a task rolls up to its scope line automatically.</div></div>
+        <span className="pill green">LIVE</span></div>
+
+      <div className="grid">
+        <div className="kpi"><small>Tasks</small><strong>{summary?.task_count ?? 0}</strong></div>
+        <div className="kpi"><small>Done</small><strong>{summary?.done_count ?? 0}</strong></div>
+        <div className="kpi"><small>Progress</small><strong>{summary?.progress_pct ?? 0}%</strong><div className="delta">duration-weighted</div></div>
+        <div className="kpi"><small>Window</small><strong style={{ fontSize: 18 }}>{summary?.starts_on ? `${fmtDay(new Date(summary.starts_on + 'T00:00:00'))} → ${fmtDay(new Date(summary.ends_on! + 'T00:00:00'))}` : '—'}</strong></div>
+      </div>
+
+      {canManage && (
+        <div className="card">
+          <h3>Add task</h3>
+          <AddTaskForm ctx={ctx} scope={scope} vendors={vendors} onAdded={reload} />
+        </div>
+      )}
+      {error && <p style={{ color: 'var(--red)', fontSize: 12 }}>{error}</p>}
+
+      <div className="card">
+        <h3>Gantt</h3>
+        <div className="gantt" style={{ position: 'relative' }}>
+          {tasks.length > 0 && todayPct >= 0 && todayPct <= 100 && (
+            <div style={{ position: 'absolute', left: `calc(160px + (100% - 160px - 75px - 16px) * ${todayPct / 100})`, top: 0, bottom: 0, width: 1, background: 'var(--amber)', opacity: 0.6, pointerEvents: 'none' }} title="Today" />
+          )}
+          {tasks.map((t) => {
+            const left = ((+new Date(t.start_date + 'T00:00:00') - min) / span) * 100
+            const width = Math.max(1.5, (t.duration_days * 864e5 / span) * 100)
+            return (
+              <div className="grow" key={t.id}>
+                <small title={t.name}>{t.name.length > 24 ? t.name.slice(0, 23) + '…' : t.name}</small>
+                <div className="gbar" title={`${fmtDay(new Date(t.start_date + 'T00:00:00'))} · ${t.duration_days}d · ${t.status}`}>
+                  <i style={{ left: `${left}%`, width: `${width}%`, background: barColor(t.status), opacity: t.status === 'planned' ? 0.55 : 1 }} />
+                </div>
+                <small className="subtle">{t.progress_pct}%</small>
+              </div>
+            )
+          })}
+          {tasks.length === 0 && <div className="emptyState"><b>No tasks yet</b>{canManage ? 'Add tasks above — pick a scope line to prefill.' : 'The PM hasn\'t scheduled work yet.'}</div>}
+        </div>
+      </div>
+
+      {tasks.length > 0 && (
+        <div className="card tablewrap">
+          <h3>Tasks</h3>
+          <table className="table">
+            <thead><tr><th>Task</th><th>Trade</th><th>Start</th><th>Days</th><th>Vendor</th><th>Progress</th><th>Status</th>{(canManage || canProgress) && <th />}</tr></thead>
+            <tbody>
+              {tasks.map((t) => (
+                <tr key={t.id}>
+                  <td>{t.name}{t.scope_item_id && <span className="pill" style={{ marginLeft: 6 }}>scope</span>}{t.notes && <div className="subtle" style={{ fontSize: 10 }}>{t.notes}</div>}</td>
+                  <td>{t.trade ?? '—'}</td>
+                  <td>{canManage
+                    ? <input type="date" value={t.start_date} onChange={(e) => run(() => updateScheduleTask(t.id, { start_date: e.target.value }))} style={{ width: 130 }} />
+                    : fmtDay(new Date(t.start_date + 'T00:00:00'))}</td>
+                  <td>{canManage
+                    ? <input type="number" min={1} value={t.duration_days} onChange={(e) => run(() => updateScheduleTask(t.id, { duration_days: Math.max(1, Number(e.target.value) || 1) }))} style={{ width: 60 }} />
+                    : t.duration_days}</td>
+                  <td>{t.vendors?.name ?? '—'}</td>
+                  <td style={{ minWidth: 140 }}>
+                    {canProgress
+                      ? <input type="range" min={0} max={100} step={5} defaultValue={t.progress_pct} onMouseUp={(e) => run(() => updateScheduleTask(t.id, { progress_pct: Number((e.target as HTMLInputElement).value) }))} onTouchEnd={(e) => run(() => updateScheduleTask(t.id, { progress_pct: Number((e.target as HTMLInputElement).value) }))} style={{ width: 110 }} />
+                      : <div className="progress"><i style={{ width: `${t.progress_pct}%` }} /></div>}
+                    <span className="subtle" style={{ marginLeft: 6, fontSize: 10 }}>{t.progress_pct}%</span>
+                  </td>
+                  <td>{canProgress
+                    ? <select value={t.status} onChange={(e) => run(() => updateScheduleTask(t.id, { status: e.target.value as TaskStatus }))} style={{ fontSize: 11 }}>
+                        {TASK_STATUSES.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                      </select>
+                    : <span className={`pill ${t.status === 'done' ? 'green' : t.status === 'blocked' ? 'red' : t.status === 'in_progress' ? 'amber' : ''}`}>{t.status.replace('_', ' ')}</span>}</td>
+                  {(canManage || canProgress) && (
+                    <td>{canManage && <button className="btn ghost" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => run(() => deleteScheduleTask(t.id))}>Remove</button>}</td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   )
 }
