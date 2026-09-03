@@ -432,3 +432,100 @@ export async function deleteScheduleTask(id: string): Promise<void> {
   const { error } = await supabase.from('schedule_tasks').delete().eq('id', id)
   if (error) throw error
 }
+
+export type ChangeOrderStatus = 'pending' | 'approved' | 'rejected' | 'void'
+export type RfiStatus = 'open' | 'answered' | 'closed'
+
+export interface ChangeOrder {
+  id: string
+  number: number
+  title: string
+  description: string | null
+  amount_cents: number
+  schedule_impact_days: number
+  status: ChangeOrderStatus
+  decided_at: string | null
+  decision_note: string | null
+  created_at: string
+  scope_items: { task: string } | null
+}
+
+export interface Rfi {
+  id: string
+  number: number
+  question: string
+  answer: string | null
+  answered_at: string | null
+  status: RfiStatus
+  created_at: string
+  scope_items: { task: string } | null
+}
+
+export const canSeeChangeOrders = canSeeFinancials
+export const canManageChangeOrders = canEditFinancials
+export const canRaiseRfi = (r: OrgRole) => r !== 'investor'
+export const canAnswerRfi = canEditFinancials
+
+export async function changeOrdersList(projectId: string): Promise<ChangeOrder[]> {
+  const { data, error } = await supabase
+    .from('change_orders')
+    .select('id, number, title, description, amount_cents, schedule_impact_days, status, decided_at, decision_note, created_at, scope_items(task)')
+    .eq('project_id', projectId)
+    .order('number', { ascending: false })
+  if (error) throw error
+  return (data as unknown as ChangeOrder[]) ?? []
+}
+
+export async function addChangeOrder(
+  orgId: string,
+  projectId: string,
+  co: { title: string; description: string; amountCents: number; scheduleImpactDays: number; scopeItemId: string },
+): Promise<void> {
+  const { error } = await supabase.from('change_orders').insert({
+    org_id: orgId,
+    project_id: projectId,
+    title: co.title,
+    description: co.description || null,
+    amount_cents: co.amountCents,
+    schedule_impact_days: co.scheduleImpactDays,
+    scope_item_id: co.scopeItemId || null,
+  })
+  if (error) throw error
+}
+
+export async function decideChangeOrder(id: string, approve: boolean, note: string): Promise<void> {
+  const { error } = await supabase.rpc('decide_change_order', { p_id: id, p_approve: approve, p_note: note || null })
+  if (error) throw error
+}
+
+export async function voidChangeOrder(id: string): Promise<void> {
+  const { error } = await supabase.from('change_orders').update({ status: 'void' }).eq('id', id).eq('status', 'pending')
+  if (error) throw error
+}
+
+export async function rfisList(projectId: string): Promise<Rfi[]> {
+  const { data, error } = await supabase
+    .from('rfis')
+    .select('id, number, question, answer, answered_at, status, created_at, scope_items(task)')
+    .eq('project_id', projectId)
+    .order('number', { ascending: false })
+  if (error) throw error
+  return (data as unknown as Rfi[]) ?? []
+}
+
+export async function addRfi(orgId: string, projectId: string, question: string, scopeItemId: string): Promise<void> {
+  const { error } = await supabase.from('rfis').insert({
+    org_id: orgId, project_id: projectId, question, scope_item_id: scopeItemId || null,
+  })
+  if (error) throw error
+}
+
+export async function answerRfi(id: string, answer: string): Promise<void> {
+  const { error } = await supabase.rpc('answer_rfi', { p_id: id, p_answer: answer })
+  if (error) throw error
+}
+
+export async function closeRfi(id: string): Promise<void> {
+  const { error } = await supabase.from('rfis').update({ status: 'closed' }).eq('id', id)
+  if (error) throw error
+}

@@ -12,12 +12,14 @@ import {
   vendorsList, addVendor, bidsList, addBid, setBidStatus, awardBid, deleteBid,
   materialsList, materialsTotal, addMaterial, orderMaterial, setMaterialStatus, deleteMaterial,
   scheduleTasks, scheduleSummary, addScheduleTask, updateScheduleTask, deleteScheduleTask,
+  changeOrdersList, addChangeOrder, decideChangeOrder, voidChangeOrder, rfisList, addRfi, answerRfi, closeRfi,
   canEditFinancials, canSeeFinancials, canUploadProof, canEditScope, canSeeBids, canManageBids,
   canManageMaterials, canReceiveMaterials, canManageSchedule, canUpdateProgress,
+  canSeeChangeOrders, canManageChangeOrders, canRaiseRfi, canAnswerRfi,
 } from '../lib/data'
 import type {
   OrgRole, AuditRow, ProofRow, CashflowMonth, RiskRow, ScopeItem, ScopeItemStatus, Vendor, Bid,
-  Material, Retailer, ScheduleTask, ScheduleSummary, TaskStatus,
+  Material, Retailer, ScheduleTask, ScheduleSummary, TaskStatus, ChangeOrder, Rfi,
 } from '../lib/data'
 
 export interface Ctx {
@@ -1075,6 +1077,204 @@ export function LiveSchedulePage({ ctx }: { ctx: Ctx }) {
           </table>
         </div>
       )}
+    </section>
+  )
+}
+
+function AddChangeOrderForm({ ctx, scope, onAdded }: { ctx: Ctx; scope: ScopeItem[]; onAdded: () => void }) {
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [amount, setAmount] = useState('')
+  const [days, setDays] = useState('0')
+  const [scopeItemId, setScopeItemId] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true); setError('')
+    try {
+      await addChangeOrder(ctx.orgId, ctx.projectId, {
+        title: title.trim(),
+        description: description.trim(),
+        amountCents: Math.round((Number(amount) || 0) * 100),
+        scheduleImpactDays: Number(days) || 0,
+        scopeItemId,
+      })
+      setTitle(''); setDescription(''); setAmount(''); setDays('0'); setScopeItemId('')
+      onAdded()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to raise change order')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <input className="search" style={{ maxWidth: 240 }} placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+      <input className="search" style={{ maxWidth: 130 }} placeholder="Amount $" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+      <input className="search" style={{ maxWidth: 110 }} placeholder="Days" inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} />
+      <select className="search" style={{ maxWidth: 220 }} value={scopeItemId} onChange={(e) => setScopeItemId(e.target.value)}>
+        <option value="">Scope line (optional)</option>
+        {scope.map((s) => <option key={s.id} value={s.id}>{s.room} · {s.task}</option>)}
+      </select>
+      <input className="search" style={{ maxWidth: 260 }} placeholder="Why is this needed?" value={description} onChange={(e) => setDescription(e.target.value)} />
+      <button className="btn p" disabled={busy}>{busy ? 'Raising…' : 'Raise CO'}</button>
+      {error && <span style={{ color: 'var(--red)', fontSize: 12 }}>{error}</span>}
+    </form>
+  )
+}
+
+function DecideButtons({ onDecide }: { onDecide: (approve: boolean, note: string) => void }) {
+  const [note, setNote] = useState('')
+  return (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 8 }}>
+      <input className="search" style={{ maxWidth: 200 }} placeholder="Decision note" value={note} onChange={(e) => setNote(e.target.value)} />
+      <button className="btn p" style={{ padding: '5px 10px', fontSize: 11 }} onClick={() => onDecide(true, note)}>Approve</button>
+      <button className="btn warn" style={{ padding: '5px 10px', fontSize: 11 }} onClick={() => onDecide(false, note)}>Reject</button>
+    </div>
+  )
+}
+
+function RfiCard({ rfi, canAnswer, onAnswer, onClose }: { rfi: Rfi; canAnswer: boolean; onAnswer: (a: string) => void; onClose: () => void }) {
+  const [answer, setAnswer] = useState('')
+  return (
+    <div className="card">
+      <div className="sectiontitle" style={{ margin: '0 0 8px' }}>
+        <h3 style={{ margin: 0, fontSize: 14 }}>RFI #{rfi.number}</h3>
+        <span className={`pill ${rfi.status === 'answered' ? 'green' : rfi.status === 'closed' ? '' : 'amber'}`}>{rfi.status}</span>
+      </div>
+      <p style={{ margin: '0 0 6px' }}>{rfi.question}</p>
+      {rfi.scope_items && <div className="subtle" style={{ fontSize: 10 }}>re: {rfi.scope_items.task}</div>}
+      {rfi.answer && <p className="subtle" style={{ fontSize: 12, borderLeft: '2px solid var(--green)', paddingLeft: 8, margin: '8px 0 0' }}>{rfi.answer}</p>}
+      {canAnswer && rfi.status === 'open' && (
+        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+          <input className="search" placeholder="Answer" value={answer} onChange={(e) => setAnswer(e.target.value)} />
+          <button className="btn p" style={{ padding: '5px 10px', fontSize: 11 }} onClick={() => answer.trim() && onAnswer(answer.trim())}>Answer</button>
+        </div>
+      )}
+      {canAnswer && rfi.status === 'answered' && (
+        <button className="btn ghost" style={{ padding: '3px 8px', fontSize: 11, marginTop: 8 }} onClick={onClose}>Close RFI</button>
+      )}
+    </div>
+  )
+}
+
+export function LiveChangesPage({ ctx }: { ctx: Ctx }) {
+  const [cos, setCos] = useState<ChangeOrder[]>([])
+  const [rfis, setRfis] = useState<Rfi[]>([])
+  const [scope, setScope] = useState<ScopeItem[]>([])
+  const [question, setQuestion] = useState('')
+  const [error, setError] = useState('')
+  const seeCos = canSeeChangeOrders(ctx.role)
+  const manageCos = canManageChangeOrders(ctx.role)
+  const raiseRfi = canRaiseRfi(ctx.role)
+  const answerRfis = canAnswerRfi(ctx.role)
+
+  const reload = useCallback(async () => {
+    if (!ctx.projectId) return
+    const [r, s] = await Promise.all([rfisList(ctx.projectId), scopeItems(ctx.projectId)])
+    setRfis(r); setScope(s)
+    if (canSeeChangeOrders(ctx.role)) setCos(await changeOrdersList(ctx.projectId))
+  }, [ctx.projectId, ctx.role])
+  useEffect(() => { reload() }, [reload])
+
+  if (!ctx.hasProject) {
+    return (
+      <section className="page on">
+        <div className="sectiontitle"><h2>Change Orders & RFIs</h2></div>
+        <NoPropertyCard ctx={ctx} />
+      </section>
+    )
+  }
+
+  async function run(fn: () => Promise<void>) {
+    setError('')
+    try { await fn(); await reload(); ctx.reload() }
+    catch (err) { setError(err instanceof Error ? err.message : 'Action failed') }
+  }
+
+  const pending = cos.filter((c) => c.status === 'pending')
+  const approvedTotal = cos.filter((c) => c.status === 'approved').reduce((a, c) => a + c.amount_cents, 0)
+  const approvedDays = cos.filter((c) => c.status === 'approved').reduce((a, c) => a + c.schedule_impact_days, 0)
+
+  return (
+    <section className="page on">
+      <div className="sectiontitle"><div><h2>Change Orders & RFIs — {ctx.projectName}</h2>
+        <div className="subtle">Approving a change order adjusts the project budget in the ledger. E-signature layers on this record in Phase 4.</div></div>
+        <span className="pill green">LIVE</span></div>
+
+      {seeCos && (
+        <div className="grid">
+          <div className="kpi"><small>Change orders</small><strong>{cos.length}</strong></div>
+          <div className="kpi"><small>Pending</small><strong style={{ color: pending.length ? 'var(--amber)' : undefined }}>{pending.length}</strong></div>
+          <div className="kpi"><small>Approved value</small><strong style={{ color: approvedTotal >= 0 ? 'var(--green)' : 'var(--red)' }}>{formatCents(approvedTotal)}</strong></div>
+          <div className="kpi"><small>Schedule impact</small><strong>{approvedDays > 0 ? `+${approvedDays}d` : `${approvedDays}d`}</strong></div>
+        </div>
+      )}
+
+      {manageCos && (
+        <div className="card">
+          <h3>Raise change order</h3>
+          <AddChangeOrderForm ctx={ctx} scope={scope} onAdded={reload} />
+        </div>
+      )}
+      {error && <p style={{ color: 'var(--red)', fontSize: 12 }}>{error}</p>}
+
+      {seeCos && (
+        <>
+          <div className="sectiontitle"><h2 style={{ fontSize: 16 }}>Change orders</h2></div>
+          <div className="grid2">
+            {cos.map((c) => (
+              <div className="card" key={c.id}>
+                <div className="sectiontitle" style={{ margin: '0 0 8px' }}>
+                  <h3 style={{ margin: 0, fontSize: 14 }}>CO #{c.number} · {c.title}</h3>
+                  <span className={`pill ${c.status === 'approved' ? 'green' : c.status === 'pending' ? 'amber' : 'red'}`}>{c.status}</span>
+                </div>
+                <b style={{ fontSize: 22, color: c.amount_cents >= 0 ? undefined : 'var(--green)' }}>{formatCents(c.amount_cents)}</b>
+                {c.schedule_impact_days !== 0 && <span className="pill" style={{ marginLeft: 8 }}>{c.schedule_impact_days > 0 ? '+' : ''}{c.schedule_impact_days}d</span>}
+                {c.description && <p className="subtle" style={{ fontSize: 12, margin: '8px 0 0' }}>{c.description}</p>}
+                {c.scope_items && <div className="subtle" style={{ fontSize: 10, marginTop: 4 }}>re: {c.scope_items.task}</div>}
+                {c.decision_note && <p className="subtle" style={{ fontSize: 11, marginTop: 6 }}>Decision: {c.decision_note}</p>}
+                {manageCos && c.status === 'pending' && (
+                  <>
+                    <DecideButtons onDecide={(approve, note) => run(() => decideChangeOrder(c.id, approve, note))} />
+                    <button className="btn ghost" style={{ padding: '3px 8px', fontSize: 11, marginTop: 6 }} onClick={() => run(() => voidChangeOrder(c.id))}>Void</button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+          {cos.length === 0 && <div className="emptyState"><b>No change orders</b>{manageCos ? 'Raise one above when scope changes.' : 'None raised yet.'}</div>}
+        </>
+      )}
+
+      <div className="sectiontitle"><h2 style={{ fontSize: 16 }}>RFIs</h2>
+        <span className="pill amber">{rfis.filter((r) => r.status === 'open').length} open</span></div>
+      {raiseRfi && (
+        <div className="card">
+          <form
+            style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}
+            onSubmit={(e) => { e.preventDefault(); if (question.trim()) run(async () => { await addRfi(ctx.orgId, ctx.projectId, question.trim(), ''); setQuestion('') }) }}
+          >
+            <input className="search" style={{ maxWidth: 420 }} placeholder="Ask a question about the job…" value={question} onChange={(e) => setQuestion(e.target.value)} required />
+            <button className="btn p">Raise RFI</button>
+          </form>
+        </div>
+      )}
+      <div className="grid2">
+        {rfis.map((r) => (
+          <RfiCard
+            key={r.id}
+            rfi={r}
+            canAnswer={answerRfis}
+            onAnswer={(a) => run(() => answerRfi(r.id, a))}
+            onClose={() => run(() => closeRfi(r.id))}
+          />
+        ))}
+      </div>
+      {rfis.length === 0 && <div className="emptyState"><b>No RFIs</b>Field questions raised here get a tracked answer.</div>}
     </section>
   )
 }
