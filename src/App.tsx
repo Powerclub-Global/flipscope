@@ -63,10 +63,75 @@ function Login() {
   )
 }
 
+interface OnboardingInfo {
+  orgId: string
+  orgName: string
+  portfolioId: string
+  role: OrgRole
+}
+
+function AddFirstProperty({ info, onDone }: { info: OnboardingInfo; onDone: () => void }) {
+  const [address, setAddress] = useState('')
+  const [city, setCity] = useState('')
+  const [state, setState] = useState('')
+  const [purchasePrice, setPurchasePrice] = useState('')
+  const [projectName, setProjectName] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true); setError('')
+    try {
+      const { data: property, error: propErr } = await supabase
+        .from('properties')
+        .insert({ org_id: info.orgId, portfolio_id: info.portfolioId, address, city, state })
+        .select('id')
+        .single()
+      if (propErr) throw propErr
+
+      const priceCents = purchasePrice ? Math.round(parseFloat(purchasePrice) * 100) : null
+      const { error: projErr } = await supabase.from('projects').insert({
+        org_id: info.orgId,
+        property_id: property.id,
+        name: projectName || address,
+        status: 'rehab',
+        purchase_price_cents: priceCents,
+      })
+      if (projErr) throw projErr
+
+      onDone()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create property')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="auth-wrap">
+      <form className="auth-card" style={{ width: 'min(520px, 100%)' }} onSubmit={submit}>
+        <div className="brand"><div className="mark" /><b>Flip<span>Scope</span></b></div>
+        <p className="subtle">{info.orgName} has no properties yet. Add the first one to get started.</p>
+        <input placeholder="Address" value={address} onChange={(e) => setAddress(e.target.value)} required />
+        <div className="formgrid" style={{ margin: '6px 0' }}>
+          <input placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} />
+          <input placeholder="State" value={state} onChange={(e) => setState(e.target.value)} />
+        </div>
+        <input placeholder="Project name (optional)" value={projectName} onChange={(e) => setProjectName(e.target.value)} />
+        <input placeholder="Purchase price (USD, optional)" inputMode="decimal" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} />
+        <p className="autherr">{error}</p>
+        <button className="btn p" style={{ width: '100%' }} disabled={busy}>{busy ? 'Adding…' : 'Add property'}</button>
+      </form>
+    </div>
+  )
+}
+
 function Shell({ session }: { session: Session }) {
   const [page, setPage] = useState('home')
   const [ctx, setCtx] = useState<Ctx | null>(null)
   const [role, setRole] = useState<OrgRole | null>(null)
+  const [onboarding, setOnboarding] = useState<OnboardingInfo | null>(null)
 
   const load = useCallback(async () => {
     const me = await myRole()
@@ -80,7 +145,16 @@ function Shell({ session }: { session: Session }) {
       .select('id, name, arv_cents, properties(address)')
       .order('created_at')
     const project = prjs?.[0] as unknown as { id: string; name: string; arv_cents: number | null; properties: { address: string } | null } | undefined
-    if (!project || !pfs?.[0]) return
+    if (!project || !pfs?.[0]) {
+      setOnboarding({
+        orgId: me.orgId,
+        orgName: orgs?.[0]?.name ?? '',
+        portfolioId: pfs?.[0]?.id ?? '',
+        role: me.role,
+      })
+      return
+    }
+    setOnboarding(null)
 
     let fin: Financials | null = null
     let pfFin: Financials | null = null
@@ -107,6 +181,9 @@ function Shell({ session }: { session: Session }) {
 
   useEffect(() => { load() }, [load])
 
+  if (onboarding && onboarding.portfolioId) {
+    return <AddFirstProperty info={onboarding} onDone={load} />
+  }
   if (!ctx || !role) return null
   const showMoney = canSeeFinancials(role)
   const f = ctx.fin
