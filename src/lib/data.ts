@@ -670,3 +670,50 @@ export async function closeProject(projectId: string): Promise<void> {
   const { error } = await supabase.rpc('close_project', { p_project_id: projectId })
   if (error) throw error
 }
+
+export interface Underwriting {
+  purchase_cents: number
+  rehab_cents: number
+  financing_cents: number
+  holding_cents: number
+  contingency_cents: number
+  selling_cents: number
+  all_in_cents: number
+  arv_cents: number
+  profit_cents: number
+  margin_bps: number
+  roi_bps: number
+  target_margin_bps: number
+  meets_target: boolean
+}
+
+export interface DealAssumptions {
+  purchase_price_cents: number | null
+  arv_cents: number | null
+  financing_cents: number
+  holding_cents: number
+  contingency_cents: number
+  selling_pct_bps: number
+  target_margin_bps: number
+}
+
+export async function projectUnderwriting(projectId: string): Promise<Underwriting | null> {
+  const { data, error } = await supabase.rpc('project_underwriting', { p_project_id: projectId })
+  if (error) throw error
+  return ((data as Underwriting[])?.[0]) ?? null
+}
+
+export async function dealAssumptions(projectId: string): Promise<DealAssumptions | null> {
+  const { data, error } = await supabase
+    .from('projects')
+    .select('purchase_price_cents, arv_cents, financing_cents, holding_cents, contingency_cents, selling_pct_bps, target_margin_bps')
+    .eq('id', projectId)
+    .single()
+  if (error) throw error
+  return (data as DealAssumptions) ?? null
+}
+
+export async function updateDealAssumptions(projectId: string, patch: Partial<DealAssumptions>): Promise<void> {
+  const { error } = await supabase.from('projects').update(patch).eq('id', projectId)
+  if (error) throw error
+}

@@ -5,10 +5,10 @@ import { projectFinancials, portfolioFinancials, formatCents, formatRoi } from '
 import type { Financials } from './lib/financials'
 import { myRole, canSeeFinancials } from './lib/data'
 import type { OrgRole } from './lib/data'
-import { HomePage, FinancialsPage, FieldPage, FeedPage, PortalPage, RiskPage, TeamPage, LiveScopePage, LiveBidsPage, LiveMaterialsPage, LiveSchedulePage, LiveChangesPage, LiveCloseoutPage } from './pages/live'
+import { HomePage, FinancialsPage, FieldPage, FeedPage, PortalPage, RiskPage, TeamPage, LiveScopePage, LiveBidsPage, LiveMaterialsPage, LiveSchedulePage, LiveChangesPage, LiveCloseoutPage, LiveDealPage, LiveCopilotPage } from './pages/live'
 import type { Ctx } from './pages/live'
 import {
-  CopilotPage, DealPage, CapturePage, DesignPage,
+  CapturePage, DesignPage,
   ReportsPage,
 } from './pages/preview'
 import './App.css'
@@ -185,8 +185,8 @@ function Shell({ session }: { session: Session }) {
 
   const pages: Record<string, React.ReactNode> = {
     home: <HomePage ctx={ctx} />,
-    copilot: <CopilotPage />,
-    deal: <DealPage />,
+    copilot: <LiveCopilotPage ctx={ctx} />,
+    deal: <LiveDealPage ctx={ctx} />,
     capture: <CapturePage />,
     scope: <LiveScopePage ctx={ctx} />,
     bids: <LiveBidsPage ctx={ctx} />,

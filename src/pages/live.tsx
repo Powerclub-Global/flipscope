@@ -16,6 +16,7 @@ import {
   punchItems, addPunchItem, setPunchStatus, deletePunchItem,
   closeoutItems, seedCloseoutChecklist, setCloseoutItemStatus, addCloseoutItem,
   warrantiesList, addWarranty, deleteWarranty, closeoutReadiness, closeProject,
+  projectUnderwriting, dealAssumptions, updateDealAssumptions,
   canEditFinancials, canSeeFinancials, canUploadProof, canEditScope, canSeeBids, canManageBids,
   canManageMaterials, canReceiveMaterials, canManageSchedule, canUpdateProgress,
   canSeeChangeOrders, canManageChangeOrders, canRaiseRfi, canAnswerRfi,
@@ -25,6 +26,7 @@ import type {
   OrgRole, AuditRow, ProofRow, CashflowMonth, RiskRow, ScopeItem, ScopeItemStatus, Vendor, Bid,
   Material, Retailer, ScheduleTask, ScheduleSummary, TaskStatus, ChangeOrder, Rfi,
   PunchItem, PunchStatus, CloseoutItem, Warranty, CloseoutReadiness,
+  Underwriting, DealAssumptions,
 } from '../lib/data'
 
 export interface Ctx {
@@ -1471,6 +1473,243 @@ export function LiveCloseoutPage({ ctx }: { ctx: Ctx }) {
           </tbody>
         </table>
         {warranties.length === 0 && <p className="subtle">No warranties registered.</p>}
+      </div>
+    </section>
+  )
+}
+
+const bpsPct = (bps: number) => `${(bps / 100).toFixed(1)}%`
+
+// Dollar input bound to an integer-cents field on the project.
+function CentsField({ label, cents, disabled, onCommit }: { label: string; cents: number; disabled: boolean; onCommit: (cents: number) => void }) {
+  const [draft, setDraft] = useState((cents / 100).toString())
+  useEffect(() => { setDraft((cents / 100).toString()) }, [cents])
+  return (
+    <div className="field">
+      <label>{label}</label>
+      <input
+        inputMode="decimal"
+        disabled={disabled}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          const next = Math.round((Number(draft) || 0) * 100)
+          if (next !== cents) onCommit(next)
+        }}
+      />
+    </div>
+  )
+}
+
+function BpsField({ label, bps, disabled, onCommit }: { label: string; bps: number; disabled: boolean; onCommit: (bps: number) => void }) {
+  const [draft, setDraft] = useState((bps / 100).toString())
+  useEffect(() => { setDraft((bps / 100).toString()) }, [bps])
+  return (
+    <div className="field">
+      <label>{label}</label>
+      <input
+        inputMode="decimal"
+        disabled={disabled}
+        value={draft}
+        onBlur={() => {
+          const next = Math.round((Number(draft) || 0) * 100)
+          if (next !== bps) onCommit(Math.min(10000, Math.max(0, next)))
+        }}
+        onChange={(e) => setDraft(e.target.value)}
+      />
+    </div>
+  )
+}
+
+export function LiveDealPage({ ctx }: { ctx: Ctx }) {
+  const [uw, setUw] = useState<Underwriting | null>(null)
+  const [assumptions, setAssumptions] = useState<DealAssumptions | null>(null)
+  const [error, setError] = useState('')
+  const canEdit = canEditFinancials(ctx.role)
+
+  const reload = useCallback(async () => {
+    if (!ctx.projectId) return
+    const [u, a] = await Promise.all([projectUnderwriting(ctx.projectId), dealAssumptions(ctx.projectId)])
+    setUw(u); setAssumptions(a)
+  }, [ctx.projectId])
+  useEffect(() => { reload() }, [reload])
+
+  if (!ctx.hasProject) {
+    return (
+      <section className="page on">
+        <div className="sectiontitle"><h2>Deal Underwriting</h2></div>
+        <NoPropertyCard ctx={ctx} />
+      </section>
+    )
+  }
+  if (!canSeeFinancials(ctx.role)) {
+    return (
+      <section className="page on">
+        <div className="sectiontitle"><h2>Deal Underwriting</h2></div>
+        <div className="emptyState"><b>Underwriting is visible to owners, PMs and investors only.</b></div>
+      </section>
+    )
+  }
+
+  async function commit(patch: Partial<DealAssumptions>) {
+    setError('')
+    try { await updateDealAssumptions(ctx.projectId, patch); await reload(); ctx.reload() }
+    catch (err) { setError(err instanceof Error ? err.message : 'Could not save') }
+  }
+
+  const rows: [string, number][] = uw ? [
+    ['Purchase', uw.purchase_cents],
+    ['Rehab (approved budget)', uw.rehab_cents],
+    ['Financing', uw.financing_cents],
+    ['Holding', uw.holding_cents],
+    ['Contingency', uw.contingency_cents],
+    [`Selling (${bpsPct(assumptions?.selling_pct_bps ?? 0)})`, uw.selling_cents],
+  ] : []
+
+  return (
+    <section className="page on">
+      <div className="sectiontitle"><div><h2>Deal Underwriting — {ctx.projectName}</h2>
+        <div className="subtle">Buy-box math from the live ledger. Rehab is the approved budget; ARV is manual until the Phase 4 comps feed.</div></div>
+        <span className="pill green">LIVE</span></div>
+
+      {uw && (
+        <div className="grid">
+          {kpi('All-in cost', formatCents(uw.all_in_cents))}
+          {kpi('ARV', formatCents(uw.arv_cents), uw.arv_cents === 0 ? 'set ARV below' : undefined)}
+          {kpi('Projected profit', formatCents(uw.profit_cents), `ROI ${bpsPct(uw.roi_bps)}`, uw.profit_cents >= 0 ? 'var(--green)' : 'var(--red)')}
+          {kpi('Margin', bpsPct(uw.margin_bps), `target ${bpsPct(uw.target_margin_bps)}`, uw.meets_target ? 'var(--green)' : 'var(--amber)')}
+        </div>
+      )}
+
+      {uw && (
+        <div className="card">
+          <div className="sectiontitle" style={{ margin: '0 0 8px' }}><h3 style={{ margin: 0 }}>Verdict</h3>
+            <span className={`pill ${uw.meets_target ? 'green' : 'amber'}`}>{uw.meets_target ? 'MEETS TARGET' : 'BELOW TARGET'}</span></div>
+          <p className="subtle" style={{ margin: 0, fontSize: 12.5 }}>
+            {uw.arv_cents === 0
+              ? 'Set an ARV to underwrite this deal.'
+              : uw.meets_target
+                ? `At ${formatCents(uw.arv_cents)} ARV this deal clears your ${bpsPct(uw.target_margin_bps)} margin target with ${formatCents(uw.profit_cents)} of profit.`
+                : `This deal returns ${bpsPct(uw.margin_bps)} against a ${bpsPct(uw.target_margin_bps)} target — ${formatCents(Math.round(uw.arv_cents * uw.target_margin_bps / 10000) - uw.profit_cents)} short. Cut scope, renegotiate, or walk.`}
+          </p>
+        </div>
+      )}
+
+      {error && <p style={{ color: 'var(--red)', fontSize: 12 }}>{error}</p>}
+
+      <div className="grid2">
+        <div className="card tablewrap">
+          <h3>Cost stack</h3>
+          <table className="table"><tbody>
+            {rows.map(([k, v]) => (
+              <tr key={k}><td>{k}</td><td style={{ textAlign: 'right' }}>{formatCents(v)}</td></tr>
+            ))}
+            <tr><td><b>All-in</b></td><td style={{ textAlign: 'right' }}><b>{formatCents(uw?.all_in_cents ?? 0)}</b></td></tr>
+          </tbody></table>
+        </div>
+
+        <div className="card">
+          <h3>Assumptions</h3>
+          {!canEdit && <p className="subtle" style={{ fontSize: 11 }}>Read-only for your role.</p>}
+          {assumptions && (
+            <div className="formgrid">
+              <CentsField label="Purchase price" cents={assumptions.purchase_price_cents ?? 0} disabled={!canEdit} onCommit={(c) => commit({ purchase_price_cents: c })} />
+              <CentsField label="ARV" cents={assumptions.arv_cents ?? 0} disabled={!canEdit} onCommit={(c) => commit({ arv_cents: c })} />
+              <CentsField label="Financing" cents={assumptions.financing_cents} disabled={!canEdit} onCommit={(c) => commit({ financing_cents: c })} />
+              <CentsField label="Holding" cents={assumptions.holding_cents} disabled={!canEdit} onCommit={(c) => commit({ holding_cents: c })} />
+              <CentsField label="Contingency" cents={assumptions.contingency_cents} disabled={!canEdit} onCommit={(c) => commit({ contingency_cents: c })} />
+              <BpsField label="Selling cost %" bps={assumptions.selling_pct_bps} disabled={!canEdit} onCommit={(b) => commit({ selling_pct_bps: b })} />
+              <BpsField label="Target margin %" bps={assumptions.target_margin_bps} disabled={!canEdit} onCommit={(b) => commit({ target_margin_bps: b })} />
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// The Copilot's numbers are real — they come from the underwriting engine and
+// the ledger. Only the conversation needs the Phase 3 AI service, and the
+// panel says so rather than answering with invented figures.
+export function LiveCopilotPage({ ctx }: { ctx: Ctx }) {
+  const [uw, setUw] = useState<Underwriting | null>(null)
+  const [risk, setRisk] = useState<RiskRow[]>([])
+  const [msgs, setMsgs] = useState<{ who: string; text: string }[]>([
+    { who: 'assistant', text: 'I read this project’s scope, ledger, schedule and punch list. The conversational answers arrive with the Phase 3 AI service — the figures beside me are already live.' },
+  ])
+  const [input, setInput] = useState('')
+
+  const reload = useCallback(async () => {
+    if (!ctx.projectId) return
+    const [u, r] = await Promise.all([
+      projectUnderwriting(ctx.projectId),
+      ctx.portfolioId ? portfolioRisk(ctx.portfolioId) : Promise.resolve([]),
+    ])
+    setUw(u); setRisk(r)
+  }, [ctx.projectId, ctx.portfolioId])
+  useEffect(() => { reload() }, [reload])
+
+  if (!ctx.hasProject) {
+    return (
+      <section className="page on">
+        <div className="sectiontitle"><h2>FlipScope Copilot</h2></div>
+        <NoPropertyCard ctx={ctx} />
+      </section>
+    )
+  }
+
+  function send() {
+    if (!input.trim()) return
+    setMsgs((m) => [...m, { who: 'user', text: input },
+      { who: 'assistant', text: 'The Copilot backend lands in Phase 3. Until then the live figures are on the left, and every underlying number is on the Financials, Risk and Schedule pages.' }])
+    setInput('')
+  }
+
+  const mine = risk.find((r) => r.project_id === ctx.projectId)
+  const showMoney = canSeeFinancials(ctx.role)
+
+  return (
+    <section className="page on">
+      <div className="sectiontitle"><div><h2>FlipScope Copilot</h2>
+        <div className="subtle">Project-aware assistant for cost, cash, schedule and risk.</div></div>
+        <span className="pill amber">CHAT SHIPS IN PHASE 3 · FIGURES ARE LIVE</span></div>
+      <div className="copilotShell">
+        <div>
+          <div className="card">
+            <h3>Live project insight</h3>
+            {showMoney && uw ? (
+              <>
+                <div className="insightBox"><small className="subtle">Projected all-in cost</small><b>{formatCents(uw.all_in_cents)}</b>
+                  <small className="subtle">purchase + approved budget + carry</small></div>
+                <div className="insightBox"><small className="subtle">Projected profit</small>
+                  <b style={{ color: uw.profit_cents >= 0 ? 'var(--green)' : 'var(--red)' }}>{formatCents(uw.profit_cents)}</b>
+                  <small className="subtle">margin {bpsPct(uw.margin_bps)} · target {bpsPct(uw.target_margin_bps)}</small></div>
+              </>
+            ) : (
+              <p className="subtle" style={{ fontSize: 12 }}>Financial figures are hidden for your role.</p>
+            )}
+            {mine && (
+              <div className="insightBox"><small className="subtle">Risk</small>
+                <b style={{ color: mine.risk_level === 'red' ? 'var(--red)' : mine.risk_level === 'amber' ? 'var(--amber)' : 'var(--green)' }}>{mine.risk_level.toUpperCase()}</b>
+                <div className="confidence"><i style={{ width: `${Math.min(100, mine.budget_used_bps / 100)}%` }} /></div>
+                <small className="subtle">{(mine.budget_used_bps / 100).toFixed(0)}% of budget used{mine.days_to_target != null ? ` · ${mine.days_to_target}d to target` : ''}</small></div>
+            )}
+          </div>
+        </div>
+        <div className="card copilotCard">
+          <div className="copilotChat">
+            {msgs.map((m, i) => <div key={i} className={`msg ${m.who}`}>{m.text}</div>)}
+          </div>
+          <div className="quickPrompts">
+            {['Where is my budget at risk?', 'What must happen this week?', 'Can I still hit my target margin?'].map((q) => (
+              <button key={q} className="btn ghost" onClick={() => setInput(q)}>{q}</button>
+            ))}
+          </div>
+          <div className="copilotInput">
+            <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder="Ask about cost, cash, schedule, risk…" />
+            <button className="btn p" onClick={send}>Send</button>
+          </div>
+        </div>
       </div>
     </section>
   )
