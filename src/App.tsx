@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 import { projectFinancials, portfolioFinancials, formatCents, formatRoi } from './lib/financials'
 import type { Financials } from './lib/financials'
-import { myRole, canSeeFinancials } from './lib/data'
+import { myRole, canSeeFinancials, canManageProperties } from './lib/data'
 import type { OrgRole } from './lib/data'
 import { HomePage, FinancialsPage, FieldPage, FeedPage, PortalPage, RiskPage, TeamPage, LiveScopePage, LiveBidsPage, LiveMaterialsPage, LiveSchedulePage, LiveChangesPage, LiveCloseoutPage, LiveDealPage, LiveCopilotPage } from './pages/live'
 import type { Ctx } from './pages/live'
@@ -84,17 +84,18 @@ function AddPropertyModal({ ctx, onClose }: { ctx: Ctx; onClose: () => void }) {
       if (propErr) throw propErr
 
       const priceCents = purchasePrice ? Math.round(parseFloat(purchasePrice) * 100) : null
-      const { error: projErr } = await supabase.from('projects').insert({
+      const { data: created, error: projErr } = await supabase.from('projects').insert({
         org_id: ctx.orgId,
         property_id: property.id,
         name: projectName || address,
         status: 'rehab',
         purchase_price_cents: priceCents,
-      })
+      }).select('id').single()
       if (projErr) throw projErr
 
       onClose()
-      ctx.reload()
+      // Land on the property that was just created.
+      ctx.selectProject(created.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create property')
     } finally {
@@ -128,11 +129,28 @@ function AddPropertyModal({ ctx, onClose }: { ctx: Ctx; onClose: () => void }) {
   )
 }
 
+interface ProjectRow {
+  id: string
+  name: string
+  status: string
+  arv_cents: number | null
+  properties: { address: string } | null
+}
+
+// Which deal the user was last looking at. Per-browser convenience only —
+// it can come back empty and the shell just falls back to the first project.
+const PROJECT_KEY = 'flipscope.selectedProject'
+const readStoredProject = () => { try { return localStorage.getItem(PROJECT_KEY) ?? '' } catch { return '' } }
+const storeProject = (id: string) => { try { localStorage.setItem(PROJECT_KEY, id) } catch { /* storage unavailable */ } }
+
 function Shell({ session }: { session: Session }) {
   const [page, setPage] = useState('home')
   const [ctx, setCtx] = useState<Ctx | null>(null)
   const [role, setRole] = useState<OrgRole | null>(null)
   const [showAddProperty, setShowAddProperty] = useState(false)
+  const [selectedId, setSelectedId] = useState(readStoredProject)
+
+  const selectProject = useCallback((id: string) => { setSelectedId(id); storeProject(id) }, [])
 
   const load = useCallback(async () => {
     const me = await myRole()
@@ -143,13 +161,19 @@ function Shell({ session }: { session: Session }) {
     const { data: pfs } = await supabase.from('portfolios').select('id, name')
     const { data: prjs } = await supabase
       .from('projects')
-      .select('id, name, arv_cents, properties(address)')
+      .select('id, name, status, arv_cents, properties(address)')
       .order('created_at')
-    const project = prjs?.[0] as unknown as { id: string; name: string; arv_cents: number | null; properties: { address: string } | null } | undefined
+
+    const rows = (prjs ?? []) as unknown as ProjectRow[]
+    const projects = rows.map((r) => ({
+      id: r.id, name: r.name, status: r.status, address: r.properties?.address ?? '',
+    }))
+    // Stay on the selected deal across reloads; fall back to the first.
+    const project = rows.find((r) => r.id === selectedId) ?? rows[0]
+
     const orgId = me.orgId
     const orgName = orgs?.[0]?.name ?? ''
     const portfolioId = pfs?.[0]?.id ?? ''
-    const hasProject = !!project
 
     let fin: Financials | null = null
     let pfFin: Financials | null = null
@@ -163,18 +187,21 @@ function Shell({ session }: { session: Session }) {
       orgName,
       role: me.role,
       portfolioId,
-      hasProject,
+      hasProject: !!project,
       projectId: project?.id ?? '',
       projectName: project?.name ?? '',
+      projectStatus: project?.status ?? '',
       address: project?.properties?.address ?? '',
       arvCents: project?.arv_cents ?? null,
       fin,
       portfolioFin: pfFin,
+      projects,
+      selectProject,
       reload: () => { load() },
       go: setPage,
       addProperty: () => setShowAddProperty(true),
     })
-  }, [])
+  }, [selectedId, selectProject])
 
   useEffect(() => { load() }, [load])
 
@@ -209,9 +236,28 @@ function Shell({ session }: { session: Session }) {
       <aside className="side">
         <div className="brand"><div className="mark" /><b>Flip<span>Scope</span></b></div>
         <div className="project">
-          <strong>{ctx.address || ctx.projectName || 'No property yet'}</strong>
-          <small>{ctx.orgName}</small>
-          {ctx.hasProject && <span className="phase">ACTIVE REHAB</span>}
+          {ctx.projects.length > 1 ? (
+            <select
+              value={ctx.projectId}
+              onChange={(e) => ctx.selectProject(e.target.value)}
+              style={{ width: '100%', background: '#0a130e', border: '1px solid var(--line)', color: 'var(--text)', borderRadius: 7, padding: '6px 7px', fontWeight: 700 }}
+            >
+              {ctx.projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.address || p.name}</option>
+              ))}
+            </select>
+          ) : (
+            <strong>{ctx.address || ctx.projectName || 'No property yet'}</strong>
+          )}
+          <small>{ctx.orgName}{ctx.projects.length > 1 ? ` · ${ctx.projects.length} properties` : ''}</small>
+          {ctx.hasProject && <span className="phase">{ctx.projectStatus.replace(/_/g, ' ').toUpperCase()}</span>}
+          {canManageProperties(role) && (
+            <button
+              className="btn ghost"
+              style={{ width: '100%', marginTop: 9, padding: '6px 8px', fontSize: 11 }}
+              onClick={() => setShowAddProperty(true)}
+            >+ Add property</button>
+          )}
         </div>
         <div className="nav">
           {NAV.map(([id, ico, label]) => (

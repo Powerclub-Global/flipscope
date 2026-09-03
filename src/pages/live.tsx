@@ -29,6 +29,13 @@ import type {
   Underwriting, DealAssumptions,
 } from '../lib/data'
 
+export interface ProjectOption {
+  id: string
+  name: string
+  address: string
+  status: string
+}
+
 export interface Ctx {
   orgId: string
   orgName: string
@@ -37,10 +44,13 @@ export interface Ctx {
   hasProject: boolean
   projectId: string
   projectName: string
+  projectStatus: string
   address: string
   arvCents: number | null
   fin: Financials | null
   portfolioFin: Financials | null
+  projects: ProjectOption[]
+  selectProject: (id: string) => void
   reload: () => void
   go: (page: string) => void
   addProperty: () => void
@@ -105,11 +115,18 @@ export function HomePage({ ctx }: { ctx: Ctx }) {
               <span className={`pill ${red.length ? 'red' : 'green'}`}>{red.length ? `${red.length} at risk` : 'On Track'}</span></div>
             <div className="timeline">
               {risk.map((r) => (
-                <div className="tl" key={r.project_id}>
-                  <b>{r.project_name}</b>
+                <div
+                  className="tl"
+                  key={r.project_id}
+                  onClick={() => ctx.selectProject(r.project_id)}
+                  style={{ cursor: 'pointer', opacity: r.project_id === ctx.projectId ? 1 : 0.75 }}
+                  title="Open this property"
+                >
+                  <b>{r.project_name}{r.project_id === ctx.projectId && <span className="pill green" style={{ marginLeft: 6 }}>open</span>}</b>
                   <small> {r.address} · {(r.budget_used_bps / 100).toFixed(0)}% of budget{r.days_to_target != null ? ` · ${r.days_to_target}d to target` : ''} · {r.risk_level.toUpperCase()}</small>
                 </div>
               ))}
+              {risk.length === 0 && <p className="subtle">No projects in this portfolio yet.</p>}
             </div>
           </div>
           <div className="card">
@@ -373,7 +390,13 @@ export function RiskPage({ ctx }: { ctx: Ctx }) {
         <span className="pill green">LIVE</span></div>
       <div className="grid3">
         {rows.map((r) => (
-          <div className="card" key={r.project_id}>
+          <div
+            className="card"
+            key={r.project_id}
+            onClick={() => ctx.selectProject(r.project_id)}
+            style={{ cursor: 'pointer', outline: r.project_id === ctx.projectId ? '1px solid var(--green)' : undefined }}
+            title="Open this property"
+          >
             <div className="sectiontitle" style={{ margin: '0 0 8px' }}>
               <h3 style={{ margin: 0 }}>{r.project_name}</h3>
               <span className={`pill ${r.risk_level === 'green' ? 'green' : r.risk_level === 'amber' ? 'amber' : 'red'}`}>{r.risk_level.toUpperCase()}</span>

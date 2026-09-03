@@ -146,6 +146,8 @@ export interface ScopeItem {
 }
 
 export const canEditScope = (r: OrgRole) => r === 'owner' || r === 'pm'
+// Matches the properties_write / projects_write policies in migration 001.
+export const canManageProperties = (r: OrgRole) => r === 'owner' || r === 'pm'
 
 export async function scopeItems(projectId: string): Promise<ScopeItem[]> {
   const { data, error } = await supabase
