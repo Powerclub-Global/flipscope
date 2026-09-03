@@ -719,3 +719,157 @@ export async function updateDealAssumptions(projectId: string, patch: Partial<De
   const { error } = await supabase.from('projects').update(patch).eq('id', projectId)
   if (error) throw error
 }
+
+export type WalkthroughStatus = 'in_progress' | 'complete' | 'abandoned'
+export type ClipKind = 'video' | 'photo' | 'audio' | 'note'
+
+export interface Walkthrough {
+  id: string
+  title: string
+  status: WalkthroughStatus
+  notes: string | null
+  started_at: string
+  completed_at: string | null
+}
+
+export interface WalkthroughClip {
+  id: string
+  kind: ClipKind
+  room: string
+  storage_path: string | null
+  content_type: string | null
+  duration_seconds: number | null
+  size_bytes: number | null
+  note: string | null
+  transcript: string | null
+  captured_at: string
+}
+
+export interface WalkthroughSummary {
+  clip_count: number
+  room_count: number
+  video_count: number
+  photo_count: number
+  note_count: number
+  total_bytes: number
+  total_seconds: number
+}
+
+export const canRecordWalkthrough = (r: OrgRole) => r !== 'investor'
+export const canDeleteClip = (r: OrgRole) => r === 'owner' || r === 'pm'
+
+export async function walkthroughsList(projectId: string): Promise<Walkthrough[]> {
+  const { data, error } = await supabase
+    .from('walkthroughs')
+    .select('id, title, status, notes, started_at, completed_at')
+    .eq('project_id', projectId)
+    .order('started_at', { ascending: false })
+  if (error) throw error
+  return (data as Walkthrough[]) ?? []
+}
+
+export async function startWalkthrough(orgId: string, projectId: string, title: string): Promise<Walkthrough> {
+  const { data, error } = await supabase
+    .from('walkthroughs')
+    .insert({ org_id: orgId, project_id: projectId, title: title || 'Walkthrough' })
+    .select('id, title, status, notes, started_at, completed_at')
+    .single()
+  if (error) throw error
+  return data as Walkthrough
+}
+
+export async function setWalkthroughStatus(id: string, status: WalkthroughStatus): Promise<void> {
+  const { error } = await supabase.from('walkthroughs').update({ status }).eq('id', id)
+  if (error) throw error
+}
+
+export async function walkthroughClips(walkthroughId: string): Promise<WalkthroughClip[]> {
+  const { data, error } = await supabase
+    .from('walkthrough_clips')
+    .select('id, kind, room, storage_path, content_type, duration_seconds, size_bytes, note, transcript, captured_at')
+    .eq('walkthrough_id', walkthroughId)
+    .order('captured_at')
+  if (error) throw error
+  return (data as WalkthroughClip[]) ?? []
+}
+
+export async function walkthroughStats(walkthroughId: string): Promise<WalkthroughSummary | null> {
+  const { data, error } = await supabase.rpc('walkthrough_summary', { p_walkthrough_id: walkthroughId })
+  if (error) throw error
+  return ((data as WalkthroughSummary[])?.[0]) ?? null
+}
+
+export async function clipUrl(path: string): Promise<string | null> {
+  const { data } = await supabase.storage.from('walkthrough-media').createSignedUrl(path, 3600)
+  return data?.signedUrl ?? null
+}
+
+// Uploads the file first, and only records the row once the bytes are safely
+// stored — so a row never points at media that failed to upload. If the row
+// insert fails the orphaned object is removed, leaving nothing half-saved.
+export async function uploadClip(args: {
+  orgId: string
+  projectId: string
+  walkthroughId: string
+  kind: Exclude<ClipKind, 'note'>
+  room: string
+  file: File
+  durationSeconds: number | null
+  position: GeolocationPosition | null
+  note: string
+}): Promise<void> {
+  const ext = args.file.name.split('.').pop()?.toLowerCase() || (args.kind === 'photo' ? 'jpg' : 'mp4')
+  const path = `${args.orgId}/${args.projectId}/${args.walkthroughId}/${crypto.randomUUID()}.${ext}`
+
+  const { error: upErr } = await supabase.storage
+    .from('walkthrough-media')
+    .upload(path, args.file, { contentType: args.file.type || undefined, upsert: false })
+  if (upErr) throw upErr
+
+  const { data: userData } = await supabase.auth.getUser()
+  const { error } = await supabase.from('walkthrough_clips').insert({
+    org_id: args.orgId,
+    walkthrough_id: args.walkthroughId,
+    project_id: args.projectId,
+    kind: args.kind,
+    room: args.room,
+    storage_path: path,
+    content_type: args.file.type || null,
+    duration_seconds: args.durationSeconds,
+    size_bytes: args.file.size,
+    note: args.note || null,
+    lat: args.position?.coords.latitude ?? null,
+    lng: args.position?.coords.longitude ?? null,
+    uploader_id: userData.user!.id,
+  })
+  if (error) {
+    await supabase.storage.from('walkthrough-media').remove([path]).catch(() => {})
+    throw error
+  }
+}
+
+export async function addClipNote(args: {
+  orgId: string
+  projectId: string
+  walkthroughId: string
+  room: string
+  note: string
+}): Promise<void> {
+  const { data: userData } = await supabase.auth.getUser()
+  const { error } = await supabase.from('walkthrough_clips').insert({
+    org_id: args.orgId,
+    walkthrough_id: args.walkthroughId,
+    project_id: args.projectId,
+    kind: 'note',
+    room: args.room,
+    note: args.note,
+    uploader_id: userData.user!.id,
+  })
+  if (error) throw error
+}
+
+export async function deleteClip(id: string, storagePath: string | null): Promise<void> {
+  const { error } = await supabase.from('walkthrough_clips').delete().eq('id', id)
+  if (error) throw error
+  if (storagePath) await supabase.storage.from('walkthrough-media').remove([storagePath])
+}

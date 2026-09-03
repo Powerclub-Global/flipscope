@@ -17,6 +17,8 @@ import {
   closeoutItems, seedCloseoutChecklist, setCloseoutItemStatus, addCloseoutItem,
   warrantiesList, addWarranty, deleteWarranty, closeoutReadiness, closeProject,
   projectUnderwriting, dealAssumptions, updateDealAssumptions,
+  walkthroughsList, startWalkthrough, setWalkthroughStatus, walkthroughClips, walkthroughStats,
+  clipUrl, uploadClip, addClipNote, deleteClip, canRecordWalkthrough, canDeleteClip,
   canEditFinancials, canSeeFinancials, canUploadProof, canEditScope, canSeeBids, canManageBids,
   canManageMaterials, canReceiveMaterials, canManageSchedule, canUpdateProgress,
   canSeeChangeOrders, canManageChangeOrders, canRaiseRfi, canAnswerRfi,
@@ -27,6 +29,7 @@ import type {
   Material, Retailer, ScheduleTask, ScheduleSummary, TaskStatus, ChangeOrder, Rfi,
   PunchItem, PunchStatus, CloseoutItem, Warranty, CloseoutReadiness,
   Underwriting, DealAssumptions,
+  Walkthrough, WalkthroughClip, WalkthroughSummary, ClipKind,
 } from '../lib/data'
 
 export interface ProjectOption {
@@ -1734,6 +1737,353 @@ export function LiveCopilotPage({ ctx }: { ctx: Ctx }) {
           </div>
         </div>
       </div>
+    </section>
+  )
+}
+
+// ── Property walkthrough capture ────────────────────────────────────────────
+// Built for a phone on site. Recording uses the device's own camera app via a
+// file input rather than MediaRecorder: iOS Safari's MediaRecorder support is
+// unreliable and codec-fussy, while the native recorder always works and
+// handles orientation. Capturing room by room also keeps each upload small
+// enough to survive a weak signal.
+
+// The Supabase project rejects uploads over 50 MB (verified against the live
+// project: 50 MB succeeds, 55 MB returns EntityTooLarge). Catch it before the
+// upload starts so a walkthrough on site fails in a second with advice,
+// rather than after two minutes on a phone signal.
+const MAX_CLIP_BYTES = 50 * 1024 * 1024
+
+const ROOM_PRESETS = [
+  'Exterior', 'Entry', 'Living Room', 'Kitchen', 'Dining', 'Primary Bedroom',
+  'Primary Bath', 'Bedroom 2', 'Bedroom 3', 'Bathroom', 'Laundry', 'Garage',
+  'Basement', 'Attic', 'Roof', 'Yard',
+]
+
+type QueueState = 'uploading' | 'failed' | 'done'
+interface QueueItem {
+  id: string
+  room: string
+  kind: Exclude<ClipKind, 'note'>
+  file: File
+  durationSeconds: number | null
+  sizeBytes: number
+  state: QueueState
+  error?: string
+}
+
+const fmtBytes = (b: number) => b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : b >= 1e6 ? `${(b / 1e6).toFixed(0)} MB` : `${Math.max(1, Math.round(b / 1e3))} KB`
+const fmtSecs = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`
+
+// Read a media file's duration without uploading it.
+function readDuration(file: File): Promise<number | null> {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith('video') && !file.type.startsWith('audio')) return resolve(null)
+    const url = URL.createObjectURL(file)
+    const el = document.createElement('video')
+    const done = (v: number | null) => { URL.revokeObjectURL(url); resolve(v) }
+    el.preload = 'metadata'
+    el.onloadedmetadata = () => done(Number.isFinite(el.duration) ? el.duration : null)
+    el.onerror = () => done(null)
+    el.src = url
+    setTimeout(() => done(null), 5000)
+  })
+}
+
+function ClipThumb({ clip, onDelete }: { clip: WalkthroughClip; onDelete: (() => void) | null }) {
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    if (clip.storage_path) clipUrl(clip.storage_path).then((u) => { if (alive) setUrl(u) })
+    return () => { alive = false }
+  }, [clip.storage_path])
+
+  return (
+    <div className="card" style={{ padding: 10 }}>
+      <div className="sectiontitle" style={{ margin: '0 0 6px' }}>
+        <b style={{ fontSize: 12 }}>{clip.room}</b>
+        <span className="pill">{clip.kind}</span>
+      </div>
+      {clip.kind === 'photo' && url && <img src={url} alt={clip.room} style={{ width: '100%', borderRadius: 8, display: 'block' }} />}
+      {clip.kind === 'video' && url && <video src={url} controls playsInline style={{ width: '100%', borderRadius: 8, background: '#000' }} />}
+      {clip.kind === 'audio' && url && <audio src={url} controls style={{ width: '100%' }} />}
+      {clip.kind === 'note' && <p style={{ margin: '4px 0', fontSize: 12.5 }}>{clip.note}</p>}
+      {clip.kind !== 'note' && !url && <div className="subtle" style={{ fontSize: 11, padding: '14px 0' }}>Loading media…</div>}
+      {clip.note && clip.kind !== 'note' && <p className="subtle" style={{ fontSize: 11, margin: '6px 0 0' }}>{clip.note}</p>}
+      <div className="subtle" style={{ fontSize: 10, marginTop: 6 }}>
+        {new Date(clip.captured_at).toLocaleString()}
+        {clip.duration_seconds ? ` · ${fmtSecs(clip.duration_seconds)}` : ''}
+        {clip.size_bytes ? ` · ${fmtBytes(clip.size_bytes)}` : ''}
+      </div>
+      {clip.transcript && <p className="subtle" style={{ fontSize: 11, borderLeft: '2px solid var(--green)', paddingLeft: 7, marginTop: 6 }}>{clip.transcript}</p>}
+      {onDelete && <button className="btn ghost" style={{ padding: '2px 8px', fontSize: 10, marginTop: 6 }} onClick={onDelete}>Delete</button>}
+    </div>
+  )
+}
+
+export function LiveCapturePage({ ctx }: { ctx: Ctx }) {
+  const [walks, setWalks] = useState<Walkthrough[]>([])
+  const [active, setActive] = useState<Walkthrough | null>(null)
+  const [clips, setClips] = useState<WalkthroughClip[]>([])
+  const [stats, setStats] = useState<WalkthroughSummary | null>(null)
+  const [room, setRoom] = useState('Exterior')
+  const [customRoom, setCustomRoom] = useState('')
+  const [note, setNote] = useState('')
+  const [queue, setQueue] = useState<QueueItem[]>([])
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const canRecord = canRecordWalkthrough(ctx.role)
+  const canDelete = canDeleteClip(ctx.role)
+  const currentRoom = (customRoom.trim() || room).trim()
+
+  const loadWalks = useCallback(async () => {
+    if (!ctx.projectId) return
+    const rows = await walkthroughsList(ctx.projectId)
+    setWalks(rows)
+    setActive((prev) => prev ? (rows.find((r) => r.id === prev.id) ?? null) : (rows.find((r) => r.status === 'in_progress') ?? rows[0] ?? null))
+  }, [ctx.projectId])
+  useEffect(() => { loadWalks() }, [loadWalks])
+
+  const loadClips = useCallback(async () => {
+    if (!active) { setClips([]); setStats(null); return }
+    const [c, s] = await Promise.all([walkthroughClips(active.id), walkthroughStats(active.id)])
+    setClips(c); setStats(s)
+  }, [active])
+  useEffect(() => { loadClips() }, [loadClips])
+
+  // Nothing recorded should be lost to a stray back-swipe mid-upload.
+  const pending = queue.filter((q) => q.state !== 'done')
+  useEffect(() => {
+    if (pending.length === 0) return
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [pending.length])
+
+  if (!ctx.hasProject) {
+    return (
+      <section className="page on">
+        <div className="sectiontitle"><h2>Property Walkthrough</h2></div>
+        <NoPropertyCard ctx={ctx} />
+      </section>
+    )
+  }
+
+  async function send(item: QueueItem) {
+    setQueue((q) => q.map((x) => x.id === item.id ? { ...x, state: 'uploading', error: undefined } : x))
+    try {
+      const position = await new Promise<GeolocationPosition | null>((resolve) => {
+        if (!navigator.geolocation) return resolve(null)
+        navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { timeout: 4000 })
+      })
+      await uploadClip({
+        orgId: ctx.orgId, projectId: ctx.projectId, walkthroughId: active!.id,
+        kind: item.kind, room: item.room, file: item.file,
+        durationSeconds: item.durationSeconds, position, note: '',
+      })
+      setQueue((q) => q.map((x) => x.id === item.id ? { ...x, state: 'done' } : x))
+      await loadClips()
+      // Drop it from view a moment later so the queue stays short on a phone.
+      setTimeout(() => setQueue((q) => q.filter((x) => x.id !== item.id)), 2500)
+    } catch (err) {
+      setQueue((q) => q.map((x) => x.id === item.id
+        ? { ...x, state: 'failed', error: err instanceof Error ? err.message : 'Upload failed' } : x))
+    }
+  }
+
+  async function onFiles(kind: Exclude<ClipKind, 'note'>, e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (!files.length || !active) return
+    if (!currentRoom) { setError('Pick or type a room first'); return }
+    setError('')
+    const tooBig = files.filter((f) => f.size > MAX_CLIP_BYTES)
+    if (tooBig.length) {
+      setError(
+        `${tooBig.length === 1 ? `That clip is ${fmtBytes(tooBig[0].size)}` : `${tooBig.length} clips are too large`} — the limit is 50 MB per file. ` +
+        `Record one shorter clip per room, or set your phone camera to 1080p instead of 4K.`,
+      )
+    }
+    for (const file of files.filter((f) => f.size <= MAX_CLIP_BYTES)) {
+      const duration = await readDuration(file)
+      const item: QueueItem = {
+        id: crypto.randomUUID(), room: currentRoom, kind, file,
+        durationSeconds: duration, sizeBytes: file.size, state: 'uploading',
+      }
+      setQueue((q) => [...q, item])
+      void send(item)
+    }
+  }
+
+  async function run(fn: () => Promise<void>) {
+    setBusy(true); setError('')
+    try { await fn() }
+    catch (err) { setError(err instanceof Error ? err.message : 'Action failed') }
+    finally { setBusy(false) }
+  }
+
+  const rooms = [...new Set(clips.map((c) => c.room))]
+
+  return (
+    <section className="page on">
+      <div className="sectiontitle"><div><h2>Property Walkthrough — {ctx.projectName}</h2>
+        <div className="subtle">Walk the property room by room on your phone. Everything you record is stored against this property.</div></div>
+        <span className="pill green">LIVE</span></div>
+
+      {/* Walkthrough selection */}
+      <div className="card">
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {walks.length > 0 && (
+            <select className="search" style={{ maxWidth: 300 }} value={active?.id ?? ''} onChange={(e) => setActive(walks.find((w) => w.id === e.target.value) ?? null)}>
+              {walks.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.title} · {new Date(w.started_at).toLocaleDateString()} · {w.status.replace('_', ' ')}
+                </option>
+              ))}
+            </select>
+          )}
+          {canRecord && (
+            <button className="btn p" disabled={busy} onClick={() => run(async () => {
+              const w = await startWalkthrough(ctx.orgId, ctx.projectId, `Walkthrough ${new Date().toLocaleDateString()}`)
+              await loadWalks(); setActive(w)
+            })}>+ New walkthrough</button>
+          )}
+          {active && canRecord && active.status === 'in_progress' && (
+            <button className="btn" disabled={busy || pending.length > 0} title={pending.length ? 'Wait for uploads to finish' : undefined}
+              onClick={() => run(async () => { await setWalkthroughStatus(active.id, 'complete'); await loadWalks() })}>
+              Finish walkthrough
+            </button>
+          )}
+          {active && <span className={`pill ${active.status === 'complete' ? 'green' : 'amber'}`}>{active.status.replace('_', ' ')}</span>}
+        </div>
+        {walks.length === 0 && <p className="subtle" style={{ marginBottom: 0, fontSize: 12 }}>
+          {canRecord ? 'Start a walkthrough, then record each room as you go.' : 'No walkthroughs recorded yet.'}
+        </p>}
+      </div>
+
+      {error && <p style={{ color: 'var(--red)', fontSize: 12 }}>{error}</p>}
+
+      {/* Capture controls */}
+      {active && canRecord && active.status === 'in_progress' && (
+        <div className="card">
+          <h3>Record — {currentRoom || 'pick a room'}</h3>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+            {ROOM_PRESETS.map((r) => (
+              <button
+                key={r}
+                className={`btn ${r === room && !customRoom.trim() ? 'p' : 'ghost'}`}
+                style={{ padding: '7px 11px', fontSize: 12 }}
+                onClick={() => { setRoom(r); setCustomRoom('') }}
+              >{r}</button>
+            ))}
+          </div>
+          <input
+            className="search"
+            style={{ maxWidth: 260, marginBottom: 12 }}
+            placeholder="…or type a room name"
+            value={customRoom}
+            onChange={(e) => setCustomRoom(e.target.value)}
+          />
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+            <label className="btn p" style={{ cursor: 'pointer', textAlign: 'center', padding: '18px 12px', fontSize: 15 }}>
+              ● Record video
+              <input type="file" accept="video/*" capture="environment" hidden onChange={(e) => onFiles('video', e)} />
+            </label>
+            <label className="btn" style={{ cursor: 'pointer', textAlign: 'center', padding: '18px 12px', fontSize: 15 }}>
+              ▣ Take photos
+              <input type="file" accept="image/*" capture="environment" multiple hidden onChange={(e) => onFiles('photo', e)} />
+            </label>
+            <label className="btn" style={{ cursor: 'pointer', textAlign: 'center', padding: '18px 12px', fontSize: 15 }}>
+              ♪ Voice note
+              <input type="file" accept="audio/*" capture hidden onChange={(e) => onFiles('audio', e)} />
+            </label>
+          </div>
+          <p className="subtle" style={{ fontSize: 11, marginBottom: 0 }}>
+            On a phone these open the camera or recorder directly. On a laptop they open the file picker, so an existing video can be attached.
+            One clip per room keeps each upload under the 50 MB limit — at 4K that is about a minute of video, at 1080p about four.
+          </p>
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+            <input
+              className="search"
+              style={{ maxWidth: 340 }}
+              placeholder={`Typed note for ${currentRoom || 'this room'}…`}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+            <button className="btn" disabled={busy || !note.trim() || !currentRoom} onClick={() => run(async () => {
+              await addClipNote({ orgId: ctx.orgId, projectId: ctx.projectId, walkthroughId: active.id, room: currentRoom, note: note.trim() })
+              setNote(''); await loadClips()
+            })}>Save note</button>
+          </div>
+        </div>
+      )}
+
+      {/* Upload queue — the thing that must never silently drop a recording */}
+      {queue.length > 0 && (
+        <div className="card">
+          <div className="sectiontitle" style={{ margin: '0 0 8px' }}>
+            <h3 style={{ margin: 0 }}>Uploads</h3>
+            {pending.length > 0
+              ? <span className="pill amber">{pending.length} in progress — keep this page open</span>
+              : <span className="pill green">all saved</span>}
+          </div>
+          {queue.map((q) => (
+            <div className="minirow" key={q.id} style={{ alignItems: 'center' }}>
+              <span>{q.room} · {q.kind} · {fmtBytes(q.sizeBytes)}{q.durationSeconds ? ` · ${fmtSecs(q.durationSeconds)}` : ''}</span>
+              <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {q.state === 'uploading' && <span className="pill amber">uploading…</span>}
+                {q.state === 'done' && <span className="pill green">saved</span>}
+                {q.state === 'failed' && (
+                  <>
+                    <span className="pill red" title={q.error}>failed</span>
+                    <button className="btn p" style={{ padding: '2px 9px', fontSize: 11 }} onClick={() => send(q)}>Retry</button>
+                    <button className="btn ghost" style={{ padding: '2px 9px', fontSize: 11 }} onClick={() => setQueue((x) => x.filter((i) => i.id !== q.id))}>Discard</button>
+                  </>
+                )}
+              </span>
+            </div>
+          ))}
+          {queue.some((q) => q.state === 'failed') && (
+            <p className="subtle" style={{ fontSize: 11, marginBottom: 0 }}>
+              Failed items are still held in this page — retry once you have signal. Leaving the page loses them.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* What has been captured */}
+      {active && (
+        <>
+          <div className="grid">
+            <div className="kpi"><small>Clips</small><strong>{stats?.clip_count ?? 0}</strong></div>
+            <div className="kpi"><small>Rooms covered</small><strong>{stats?.room_count ?? 0}</strong></div>
+            <div className="kpi"><small>Footage</small><strong>{fmtSecs(stats?.total_seconds ?? 0)}</strong></div>
+            <div className="kpi"><small>Stored</small><strong>{fmtBytes(stats?.total_bytes ?? 0)}</strong></div>
+          </div>
+
+          {rooms.map((r) => (
+            <div key={r}>
+              <div className="sectiontitle"><h2 style={{ fontSize: 15 }}>{r}</h2>
+                <span className="pill">{clips.filter((c) => c.room === r).length} item(s)</span></div>
+              <div className="grid3">
+                {clips.filter((c) => c.room === r).map((c) => (
+                  <ClipThumb
+                    key={c.id}
+                    clip={c}
+                    onDelete={canDelete ? () => run(async () => { await deleteClip(c.id, c.storage_path); await loadClips() }) : null}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+          {clips.length === 0 && (
+            <div className="emptyState"><b>Nothing captured yet</b>
+              {canRecord && active.status === 'in_progress' ? 'Pick a room above and hit Record video.' : 'This walkthrough has no media.'}</div>
+          )}
+        </>
+      )}
     </section>
   )
 }

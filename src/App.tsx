@@ -5,10 +5,10 @@ import { projectFinancials, portfolioFinancials, formatCents, formatRoi } from '
 import type { Financials } from './lib/financials'
 import { myRole, canSeeFinancials, canManageProperties } from './lib/data'
 import type { OrgRole } from './lib/data'
-import { HomePage, FinancialsPage, FieldPage, FeedPage, PortalPage, RiskPage, TeamPage, LiveScopePage, LiveBidsPage, LiveMaterialsPage, LiveSchedulePage, LiveChangesPage, LiveCloseoutPage, LiveDealPage, LiveCopilotPage } from './pages/live'
+import { HomePage, FinancialsPage, FieldPage, FeedPage, PortalPage, RiskPage, TeamPage, LiveScopePage, LiveBidsPage, LiveMaterialsPage, LiveSchedulePage, LiveChangesPage, LiveCloseoutPage, LiveDealPage, LiveCopilotPage, LiveCapturePage } from './pages/live'
 import type { Ctx } from './pages/live'
 import {
-  CapturePage, DesignPage,
+  DesignPage,
   ReportsPage,
 } from './pages/preview'
 import './App.css'
@@ -18,7 +18,7 @@ const NAV: [string, string, string][] = [
   ['home', '⌂', 'Command Center'],
   ['copilot', '✦', 'FlipScope Copilot'],
   ['deal', '◆', 'Deal Underwriting'],
-  ['capture', '◉', 'AI Walkthrough'],
+  ['capture', '◉', 'Property Walkthrough'],
   ['scope', '▤', 'Scope & Estimate'],
   ['bids', '⇄', 'Bid Room'],
   ['design', '✦', 'AI Designer'],
@@ -149,6 +149,7 @@ function Shell({ session }: { session: Session }) {
   const [role, setRole] = useState<OrgRole | null>(null)
   const [showAddProperty, setShowAddProperty] = useState(false)
   const [selectedId, setSelectedId] = useState(readStoredProject)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const selectProject = useCallback((id: string) => { setSelectedId(id); storeProject(id) }, [])
 
@@ -214,7 +215,7 @@ function Shell({ session }: { session: Session }) {
     home: <HomePage ctx={ctx} />,
     copilot: <LiveCopilotPage ctx={ctx} />,
     deal: <LiveDealPage ctx={ctx} />,
-    capture: <CapturePage />,
+    capture: <LiveCapturePage ctx={ctx} />,
     scope: <LiveScopePage ctx={ctx} />,
     bids: <LiveBidsPage ctx={ctx} />,
     design: <DesignPage />,
@@ -231,9 +232,20 @@ function Shell({ session }: { session: Session }) {
     reports: <ReportsPage />,
   }
 
+  const pageLabel = NAV.find(([id]) => id === page)?.[2] ?? ''
+
   return (
     <div className="app">
-      <aside className="side">
+      {/* Phone header. The concept CSS hides the sidebar under 720px, so
+          without this there is no navigation at all on a phone — which is
+          exactly where a walkthrough gets recorded. */}
+      <div className="mobilebar">
+        <b>Flip<span>Scope</span></b>
+        <span className="subtle" style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: '0 8px' }}>{pageLabel}</span>
+        <button className="btn" style={{ padding: '6px 11px' }} onClick={() => setMenuOpen(true)} aria-label="Open menu">☰</button>
+      </div>
+      {menuOpen && <div className="navbackdrop" onClick={() => setMenuOpen(false)} />}
+      <aside className={`side${menuOpen ? ' open' : ''}`}>
         <div className="brand"><div className="mark" /><b>Flip<span>Scope</span></b></div>
         <div className="project">
           {ctx.projects.length > 1 ? (
@@ -261,7 +273,7 @@ function Shell({ session }: { session: Session }) {
         </div>
         <div className="nav">
           {NAV.map(([id, ico, label]) => (
-            <button key={id} className={page === id ? 'on' : ''} onClick={() => setPage(id)}>
+            <button key={id} className={page === id ? 'on' : ''} onClick={() => { setPage(id); setMenuOpen(false) }}>
               <span className="ico">{ico}</span>{label}
             </button>
           ))}
@@ -288,7 +300,7 @@ function Shell({ session }: { session: Session }) {
           <input className="search" placeholder={`${ctx.orgName} · ${role}${role === 'investor' ? ' · read-only' : ''}`} readOnly />
           <div className="topactions">
             <button className="btn ghost" onClick={() => window.print()}>Export</button>
-            <button className="btn p" onClick={() => setPage('capture')}>＋ AI Walkthrough</button>
+            <button className="btn p" onClick={() => setPage('capture')}>＋ Walkthrough</button>
           </div>
         </div>
         <div className="content">{pages[page]}</div>

@@ -30,3 +30,17 @@
 .autherr { color: var(--red); font-size: 13px; min-height: 18px; margin: 8px 0 0; }
 
 .pill.red { border-color: #6d3030; background: #311818; color: #ff9b9b; }
+
+/* Phone navigation. index.css hides .side under 720px and expects a
+   .mobilebar; these rules let the sidebar open over the page as a drawer. */
+@media (max-width: 720px) {
+  .side.open {
+    display: flex;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 84vw; max-width: 300px;
+    z-index: 60;
+    overflow-y: auto;
+  }
+  .navbackdrop { position: fixed; inset: 0; background: #000a; z-index: 55; }
+}

@@ -1,6 +1,5 @@
-// Concept pages for the features that still need an AI service layer
-// (Phases 3-5). Every other module now reads the real backend; these are
-// the only screens left showing demo data, and each says so on its face.
+// The last two screens without a real backend: the AI Designer (deferred)
+// and Reports generation (Phase 4). Everything else reads live data.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react'
 
@@ -14,30 +13,6 @@ function Section({ title, sub, children, pill }: { title: string; sub?: string; 
       <div className="sectiontitle"><div><h2>{title}</h2>{sub && <div className="subtle">{sub}</div>}</div>{pill}</div>
       {children}
     </>
-  )
-}
-
-
-export function CapturePage() {
-  return (
-    <section className="page on">
-      <Section title="AI Walkthrough" sub="Walk the property once, talking naturally — get a priced scope back." pill={<BetaPill />} />
-      <div className="stepbar">
-        {[['1 · Record', 'Video + voice walkthrough'], ['2 · Transcribe', 'Voice becomes text'], ['3 · Extract', 'LLM builds line items'], ['4 · Price', 'Editable, human-in-the-loop']].map(([b, s], i) => (
-          <div key={b} className={`step ${i === 0 ? 'done' : ''}`}><b>{b}</b><small>{s}</small></div>
-        ))}
-      </div>
-      <div className="capture">
-        <div className="camera">
-          <div className="overlay"><button className="record" title="Recording pipeline ships in Phase 3" /></div>
-        </div>
-        <div className="card">
-          <h3>Transcript</h3>
-          <div className="transcript">{'Kitchen — remove existing cabinets and countertops. Install about eighteen feet of shaker cabinets, quartz tops around forty square feet…\n\n(The live transcription and scope engine arrive in Phase 3.)'}</div>
-          <div className="drop" style={{ marginTop: 10 }}>Drop walkthrough video here (Phase 3)</div>
-        </div>
-      </div>
-    </section>
   )
 }
 
